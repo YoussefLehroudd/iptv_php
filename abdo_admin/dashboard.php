@@ -241,11 +241,18 @@ $editingProvider = $editing['providers'];
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Panel ABDO IPTV</title>
     <link rel="stylesheet" href="<?= $basePath ?>/assets/css/style.css?v=<?= time() ?>">
 </head>
 <body class="admin">
 <header class="admin-bar">
+    <button class="sidebar-toggle" type="button" aria-controls="adminSidebar" aria-expanded="false" data-sidebar-toggle>
+        <span></span>
+        <span></span>
+        <span></span>
+        <span class="sr-only">Menu</span>
+    </button>
     <div>
         <h1>Panel ABDO IPTV</h1>
         <p>Contrôle complet du contenu 2025</p>
@@ -256,8 +263,10 @@ $editingProvider = $editing['providers'];
     </div>
 </header>
 
+<button class="sidebar-overlay" type="button" aria-label="Fermer le menu" data-sidebar-overlay></button>
+
 <div class="admin-layout">
-    <aside class="admin-sidebar">
+    <aside id="adminSidebar" class="admin-sidebar">
         <div class="sidebar-logo">ABDO IPTV <small>Ultra IPTV · Canada</small></div>
         <nav class="sidebar-nav">
             <?php foreach ($navItems as $slug => $item): ?>
@@ -549,6 +558,68 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         }, 3500);
     }
+
+    const body = document.body;
+    const toggle = document.querySelector('[data-sidebar-toggle]');
+    const overlay = document.querySelector('[data-sidebar-overlay]');
+    const sidebarLinks = document.querySelectorAll('.sidebar-nav a');
+    const sidebar = document.getElementById('adminSidebar');
+    const isDesktop = () => window.matchMedia('(min-width: 961px)').matches;
+
+    const updateAria = (isOpen) => {
+        if (toggle) {
+            toggle.setAttribute('aria-expanded', String(isOpen));
+        }
+        if (sidebar) {
+            const shouldHide = !isOpen && !isDesktop();
+            sidebar.setAttribute('aria-hidden', shouldHide ? 'true' : 'false');
+        }
+    };
+
+    const closeSidebar = () => {
+        body.classList.remove('sidebar-open');
+        updateAria(false);
+    };
+
+    const openSidebar = () => {
+        body.classList.add('sidebar-open');
+        updateAria(true);
+    };
+
+    updateAria(isDesktop());
+
+    toggle?.addEventListener('click', () => {
+        if (body.classList.contains('sidebar-open')) {
+            closeSidebar();
+        } else {
+            openSidebar();
+        }
+    });
+
+    overlay?.addEventListener('click', closeSidebar);
+
+    sidebarLinks.forEach((link) => {
+        link.addEventListener('click', () => {
+            if (window.matchMedia('(max-width: 960px)').matches) {
+                closeSidebar();
+            }
+        });
+    });
+
+    document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape' && body.classList.contains('sidebar-open')) {
+            closeSidebar();
+        }
+    });
+
+    window.addEventListener('resize', () => {
+        if (isDesktop()) {
+            body.classList.remove('sidebar-open');
+            updateAria(true);
+        } else {
+            updateAria(body.classList.contains('sidebar-open'));
+        }
+    });
 });
 </script>
 </body>
