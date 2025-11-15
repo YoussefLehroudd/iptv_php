@@ -518,6 +518,10 @@ function initProviderCarousel() {
   const navButtons = carousel.querySelectorAll('[data-provider-nav]');
   if (!track) return;
   const items = Array.from(track.children);
+  track.querySelectorAll('img, video').forEach((media) => {
+    media.setAttribute('draggable', 'false');
+    media.addEventListener('dragstart', (event) => event.preventDefault());
+  });
   const originalCount = items.length;
   const getVisibleCount = () => {
     const width = window.innerWidth;
@@ -594,6 +598,52 @@ function initProviderCarousel() {
       slide(getVisibleCount());
     }, 4500);
   };
+
+  track.style.touchAction = 'pan-y';
+  let dragPointerId = null;
+  let dragStartX = 0;
+  let isDraggingPointer = false;
+  const dragThreshold = 40;
+
+  const handlePointerDown = (event) => {
+    dragPointerId = event.pointerId;
+    dragStartX = event.clientX;
+    isDraggingPointer = true;
+    clearTimeout(timer);
+    track.setPointerCapture?.(dragPointerId);
+  };
+
+  const handlePointerUp = (event) => {
+    if (!isDraggingPointer || event.pointerId !== dragPointerId) return;
+    track.releasePointerCapture?.(dragPointerId);
+    isDraggingPointer = false;
+    const delta = event.clientX - dragStartX;
+    dragPointerId = null;
+    if (Math.abs(delta) >= dragThreshold) {
+      slide(delta > 0 ? -1 : 1);
+    } else {
+      schedule();
+    }
+  };
+
+  const handlePointerMove = (event) => {
+    if (!isDraggingPointer || event.pointerId !== dragPointerId) return;
+    event.preventDefault();
+  };
+
+  const cancelDrag = (event) => {
+    if (dragPointerId === null || event.pointerId !== dragPointerId) return;
+    track.releasePointerCapture?.(dragPointerId);
+    dragPointerId = null;
+    isDraggingPointer = false;
+    schedule();
+  };
+
+  track.addEventListener('pointerdown', handlePointerDown);
+  track.addEventListener('pointerup', handlePointerUp);
+  track.addEventListener('pointerleave', cancelDrag);
+  track.addEventListener('pointercancel', cancelDrag);
+  track.addEventListener('pointermove', handlePointerMove, { passive: false });
 
   navButtons.forEach((button) => {
     const direction = button.dataset.providerNav === 'prev' ? -1 : 1;
