@@ -66,9 +66,9 @@ $defaultSportEvents = [
 ];
 
 $defaultTestimonials = [
-    ['name' => 'Omar - Montréal', 'message' => 'Service rapide, zéro freeze pendant les matchs de NHL. Merci !', 'capture_url' => $mediaBase . '/wa-1.webp'],
-    ['name' => 'Nadia - Ottawa', 'message' => 'Support WhatsApp toujours présent, j\'ai renouvelé pour 12 mois direct.', 'capture_url' => $mediaBase . '/wa-2.webp'],
-    ['name' => 'Youssef - Québec', 'message' => 'Les VOD sont mis à jour tous les jours. Netflix, Apple TV+, tout y est.', 'capture_url' => $mediaBase . '/wa-3.webp'],
+    ['name' => 'Omar - Montrï¿½al', 'message' => 'Service rapide, zï¿½ro freeze pendant les matchs de NHL. Merci !', 'capture_url' => $mediaBase . '/wa-1.webp'],
+    ['name' => 'Nadia - Ottawa', 'message' => 'Support WhatsApp toujours prï¿½sent, j\'ai renouvelï¿½ pour 12 mois direct.', 'capture_url' => $mediaBase . '/wa-2.webp'],
+    ['name' => 'Youssef - Quï¿½bec', 'message' => 'Les VOD sont mis ï¿½ jour tous les jours. Netflix, Apple TV+, tout y est.', 'capture_url' => $mediaBase . '/wa-3.webp'],
 ];
 
 $moviePosters = fetchAllAssoc($pdo, 'SELECT id, title, image_url FROM movie_posters ORDER BY created_at DESC');
@@ -95,6 +95,13 @@ $deviceBadges = [
     'LG',
     'Chrome',
     'Apple TV',
+];
+
+$welcomeRotator = [
+    'CA Â· Salut Canada! Bienvenue chez ABDO IPTV.',
+    'EN Â· Welcome! Premium IPTV made for every Canadian province.',
+    'FR Â· Assistance rapide 24/7 en francais et en arabe.',
+    'ES Â· IPTV estable para nuestra comunidad latina en Canada.',
 ];
 
 $faqs = [
@@ -177,6 +184,13 @@ $faqs = [
                 <p class="eyebrow">IPTV sÃ©curisÃ© Â· Paiement WhatsApp instantanÃ©</p>
                 <h1><?= e($settings['hero_title'] ?? 'Best IPTV Service at an Affordable Price') ?></h1>
                 <p class="subtitle"><?= e($settings['hero_subtitle'] ?? 'Experience breathtaking 4K visuals, +40K chaÃ®nes & 54K VOD partout au Canada.') ?></p>
+                <?php if ($welcomeRotator): ?>
+                    <div class="greeting-rotator" data-rotator>
+                        <?php foreach ($welcomeRotator as $index => $greeting): ?>
+                            <span class="rotator-line<?= $index === 0 ? ' active' : '' ?>" data-rotator-line><?= e($greeting) ?></span>
+                        <?php endforeach; ?>
+                    </div>
+                <?php endif; ?>
                 <div class="hero-cta">
                     <a class="btn primary" href="#offres"><?= e($settings['hero_cta'] ?? 'Voir les offres') ?></a>
                     <a class="btn outline" href="<?= e(getWhatsappLink($config['whatsapp_number'], 'Je veux tester 24h')) ?>" target="_blank" rel="noopener">Tester 24h</a>
@@ -386,7 +400,7 @@ $faqs = [
                     <div class="slider-track">
                         <?php foreach ($testimonials as $testimonial): ?>
                             <article class="slide testimonial">
-                                <img src="<?= e($testimonial['capture_url']) ?>" alt="Témoignage <?= e($testimonial['name']) ?>">
+                                <img src="<?= e($testimonial['capture_url']) ?>" alt="Temoignage <?= e($testimonial['name']) ?>">
                             </article>
                         <?php endforeach; ?>
                     </div>
@@ -453,5 +467,7 @@ $faqs = [
     <script src="<?= $basePath ?>/assets/js/main.js?v=<?= time() ?>" defer></script>
 </body>
 </html>
+
+
 
 

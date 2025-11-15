@@ -374,6 +374,26 @@ main {
     margin-bottom: 1.5rem;
 }
 
+.greeting-rotator {
+    margin: 0.25rem 0 1.5rem;
+    min-height: 2.4rem;
+    display: grid;
+    position: relative;
+}
+
+.greeting-rotator .rotator-line {
+    font-weight: 600;
+    letter-spacing: 0.03em;
+    opacity: 0;
+    transform: translateY(8px);
+    transition: opacity 0.4s ease, transform 0.4s ease;
+}
+
+.greeting-rotator .rotator-line.active {
+    opacity: 1;
+    transform: translateY(0);
+}
+
 .hero-cta {
     display: flex;
     flex-wrap: wrap;
@@ -410,6 +430,20 @@ main {
     background: rgba(12, 12, 14, 0.85);
     box-shadow: 0 25px 50px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.03);
     position: relative;
+}
+
+.hero-visual .slider {
+    overflow: visible;
+}
+
+.hero-visual .slide {
+    padding-bottom: 1.8rem;
+}
+
+.hero-visual .slide .copy {
+    margin-top: 1rem;
+    display: grid;
+    gap: 0.4rem;
 }
 
 .slider {

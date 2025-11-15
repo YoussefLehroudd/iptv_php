@@ -3,6 +3,7 @@
 document.addEventListener('DOMContentLoaded', () => {
   initSliders();
   initAnimations();
+  initGreetingRotator();
   initOfferModal();
   initFaq();
   initMobileMenu();
@@ -287,6 +288,37 @@ function initAnimations() {
     });
   }, { threshold: 0.2 });
   animated.forEach((section) => observer.observe(section));
+}
+
+function initGreetingRotator() {
+  document.querySelectorAll('[data-rotator]').forEach((rotator) => {
+    const lines = Array.from(rotator.querySelectorAll('[data-rotator-line]'));
+    if (!lines.length) return;
+    let index = lines.findIndex((line) => line.classList.contains('active'));
+    if (index < 0) {
+      lines[0].classList.add('active');
+      index = 0;
+    }
+    if (lines.length === 1) return;
+
+    const rotate = () => {
+      lines[index].classList.remove('active');
+      index = (index + 1) % lines.length;
+      lines[index].classList.add('active');
+    };
+
+    let timer;
+    const start = () => {
+      clearInterval(timer);
+      timer = setInterval(rotate, 3600);
+    };
+
+    const pause = () => clearInterval(timer);
+
+    rotator.addEventListener('mouseenter', pause);
+    rotator.addEventListener('mouseleave', start);
+    start();
+  });
 }
 
 function initOfferModal() {
