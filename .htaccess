@@ -1,0 +1,11 @@
+RewriteEngine On
+
+# Allow direct access to admin panel and other real files
+RewriteRule ^(abdo_admin/.*)$ $1 [L]
+RewriteRule ^(config/.*)$ $1 [L]
+RewriteRule ^(includes/.*)$ $1 [L]
+
+# Serve everything else from the public directory when the project root is the DocumentRoot
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^(.*)$ public/$1 [L]
