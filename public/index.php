@@ -179,9 +179,20 @@ $testimonials = [
                             <article class="slide">
                                 <div class="media">
                                     <?php if ($slider['media_type'] === 'video'): ?>
-                                        <video autoplay muted loop playsinline>
-                                            <source src="<?= e($slider['media_url']) ?>" type="video/mp4">
-                                        </video>
+                                        <div class="video-frame">
+                                            <video autoplay muted playsinline>
+                                                <source src="<?= e($slider['media_url']) ?>" type="video/mp4">
+                                            </video>
+                                            <button class="video-audio-toggle" type="button" aria-pressed="false" data-video-toggle>
+                                                <span class="sr-only">Activer le son</span>
+                                                <svg class="icon-sound" viewBox="0 0 24 24" aria-hidden="true">
+                                                    <path fill="currentColor" d="M5 9v6h3l4 4V5L8 9H5zm10.5 3a3 3 0 0 0-1.5-2.6v5.2a3 3 0 0 0 1.5-2.6zm-1.5-6.3v2.1a5 5 0 0 1 0 8.4v2.1a7 7 0 0 0 0-12.6z"/>
+                                                </svg>
+                                                <svg class="icon-muted" viewBox="0 0 24 24" aria-hidden="true">
+                                                    <path fill="currentColor" d="M16.5 12a3 3 0 0 1-.9 2.1l1.4 1.4A4.98 4.98 0 0 0 18.5 12a4.98 4.98 0 0 0-1.5-3.5l-1.4 1.4c.6.5.9 1.2.9 2.1zm3.5 0a7 7 0 0 0-2-5l-1.4 1.4A4.99 4.99 0 0 1 20 12a4.99 4.99 0 0 1-1.4 3.6L20 17a6.99 6.99 0 0 0 0-10zm-2.3 9.7L3.3 7.8 4.7 6.4 10 11h2V5l4 4h3v6h-2.2l2.5 2.5-1.4 1.4zM5 9v6h3l4 4v-6.2l5.2 5.2-1.4 1.4L12 19l-4 4H5v-6H2V9h3z"/>
+                                                </svg>
+                                            </button>
+                                        </div>
                                     <?php else: ?>
                                         <img src="<?= e($slider['media_url']) ?>" alt="<?= e($slider['title']) ?>">
                                     <?php endif; ?>

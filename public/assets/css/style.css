@@ -412,6 +412,7 @@ main {
 
 .slider .slide {
     display: none;
+    position: relative;
 }
 
 .slider .slide.active {
@@ -424,6 +425,48 @@ main {
     height: 320px;
     object-fit: cover;
     border-radius: 18px;
+}
+
+.video-frame {
+    position: relative;
+}
+
+.video-audio-toggle {
+    position: absolute;
+    top: 1rem;
+    right: 1rem;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    border: 1px solid rgba(255, 255, 255, 0.4);
+    background: rgba(0, 0, 0, 0.55);
+    display: grid;
+    place-items: center;
+    color: var(--text-primary);
+    cursor: pointer;
+    transition: background 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
+}
+
+.video-audio-toggle:hover {
+    transform: scale(1.05);
+    border-color: rgba(255, 255, 255, 0.65);
+}
+
+.video-audio-toggle svg {
+    width: 20px;
+    height: 20px;
+}
+
+.video-audio-toggle .icon-sound {
+    display: none;
+}
+
+.video-audio-toggle[aria-pressed="true"] .icon-sound {
+    display: block;
+}
+
+.video-audio-toggle[aria-pressed="true"] .icon-muted {
+    display: none;
 }
 
 .slider-nav {

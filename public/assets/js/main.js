@@ -10,24 +10,119 @@ document.addEventListener('DOMContentLoaded', () => {
 
 function initSliders() {
   const sliderStates = {};
-  document.querySelectorAll('[data-slider]').forEach((slider, index) => {
-    const slides = Array.from(slider.querySelectorAll('.slide'));
-    if (!slides.length) return;
-    const id = slider.dataset.slider || `slider-${index}`;
-    slider.dataset.slider = id;
-    sliderStates[id] = { slides, current: 0 };
-    slides[0].classList.add('active');
-  });
+  const autoConfigs = {
+    hero: 7000,
+    movies: 5000,
+    sports: 5000,
+    testimonials: 6000,
+  };
+
+  const findVideoToggle = (videoEl) =>
+    videoEl?.closest('.video-frame')?.querySelector('[data-video-toggle]');
+
+  const updateToggleState = (button, video) => {
+    if (!button || !video) return;
+    const isUnmuted = !video.muted;
+    button.setAttribute('aria-pressed', String(isUnmuted));
+    button.title = isUnmuted ? 'Couper le son' : 'Activer le son';
+    const label = button.querySelector('.sr-only');
+    if (label) label.textContent = isUnmuted ? 'Couper le son' : 'Activer le son';
+  };
+
+  const clearAutoAdvance = (state) => {
+    if (state.timer) {
+      clearTimeout(state.timer);
+      state.timer = null;
+    }
+    if (state.videoEl && state.videoHandler) {
+      const currentVideo = state.videoEl;
+      currentVideo.removeEventListener('ended', state.videoHandler);
+      currentVideo.pause?.();
+      currentVideo.muted = true;
+      updateToggleState(findVideoToggle(currentVideo), currentVideo);
+      state.videoEl = null;
+      state.videoHandler = null;
+    }
+  };
+
+  const queueNext = (id) => {
+    const state = sliderStates[id];
+    if (!state || !state.autoDelay) return;
+    const active = state.slides[state.current];
+    if (!active) return;
+
+    const video = active.querySelector('video');
+    if (video) {
+      // Wait for the video to finish before advancing.
+      const handler = () => {
+        if (!state) return;
+        state.videoEl = null;
+        state.videoHandler = null;
+        state.timer = setTimeout(() => changeSlide(id, 1), 0);
+        video.removeEventListener('ended', handler);
+      };
+      state.videoEl = video;
+      state.videoHandler = handler;
+      video.addEventListener('ended', handler);
+      const playPromise = video.play?.();
+      if (playPromise && typeof playPromise.catch === 'function') {
+        playPromise.catch(() => {});
+      }
+    } else {
+      state.timer = setTimeout(() => changeSlide(id, 1), state.autoDelay);
+    }
+  };
 
   const changeSlide = (id, direction) => {
     const state = sliderStates[id];
     if (!state) return;
     const { slides } = state;
+    clearAutoAdvance(state);
     state.current = (state.current + direction + slides.length) % slides.length;
     slides.forEach((slide, idx) => {
-      slide.classList.toggle('active', idx === state.current);
+      const isActive = idx === state.current;
+      slide.classList.toggle('active', isActive);
+      const video = slide.querySelector('video');
+      if (video) {
+        if (!isActive) {
+          video.pause?.();
+          video.currentTime = 0;
+          video.muted = true;
+          video.loop = false;
+        } else {
+          video.pause?.();
+          video.currentTime = 0;
+          video.muted = true;
+          video.loop = false;
+          const playPromise = video.play?.();
+          if (playPromise && typeof playPromise.catch === 'function') {
+            playPromise.catch(() => {});
+          }
+        }
+        updateToggleState(findVideoToggle(video), video);
+      }
     });
+    queueNext(id);
   };
+
+  document.querySelectorAll('[data-slider]').forEach((slider, index) => {
+    const slides = Array.from(slider.querySelectorAll('.slide'));
+    if (!slides.length) return;
+    const id = slider.dataset.slider || `slider-${index}`;
+    slider.dataset.slider = id;
+    sliderStates[id] = {
+      slides,
+      current: 0,
+      autoDelay: autoConfigs[id] || null,
+      timer: null,
+      videoEl: null,
+      videoHandler: null,
+    };
+    slides[0].classList.add('active');
+    if (sliderStates[id].autoDelay) {
+      queueNext(id);
+    }
+  });
 
   document.querySelectorAll('[data-slider-target]').forEach((button) => {
     const id = button.dataset.sliderTarget;
@@ -35,16 +130,25 @@ function initSliders() {
     button.addEventListener('click', () => changeSlide(id, direction));
   });
 
-  const autoConfigs = {
-    hero: 7000,
-    movies: 5000,
-    sports: 5000,
-    testimonials: 6000,
-  };
-  Object.entries(autoConfigs).forEach(([id, delay]) => {
-    if (sliderStates[id]) {
-      setInterval(() => changeSlide(id, 1), delay);
+  document.querySelectorAll('[data-video-toggle]').forEach((button) => {
+    const frame = button.closest('.video-frame');
+    const video = frame?.querySelector('video');
+    if (!video) {
+      button.remove();
+      return;
     }
+    updateToggleState(button, video);
+    button.addEventListener('click', () => {
+      const willUnmute = video.muted;
+      video.muted = !willUnmute;
+      if (willUnmute) {
+        const playPromise = video.play?.();
+        if (playPromise && typeof playPromise.catch === 'function') {
+          playPromise.catch(() => {});
+        }
+      }
+      updateToggleState(button, video);
+    });
   });
 }
 
