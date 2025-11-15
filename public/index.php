@@ -405,7 +405,7 @@ $faqs = [
                     <h2>Need help? Contact us</h2>
                     <p>WhatsApp direct ou via ce formulaire, réponse ultra rapide.</p>
                     <?php if ($contactSuccess): ?>
-                        <div class="alert success">Merci ! Message bien reçu.</div>
+                        <div class="alert success" data-flash>Merci ! Message bien reçu.</div>
                     <?php endif; ?>
                     <form action="<?= $basePath ?>/contact_submit.php" method="POST" class="contact-form">
                         <input type="hidden" name="csrf_token" value="<?= e($_SESSION['csrf_token']) ?>">

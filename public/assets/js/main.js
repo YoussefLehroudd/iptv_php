@@ -7,6 +7,7 @@ document.addEventListener('DOMContentLoaded', () => {
   initFaq();
   initMobileMenu();
   initProviderCarousel();
+  initFlashMessages();
 });
 
 function initSliders() {
@@ -503,4 +504,28 @@ function initProviderCarousel() {
   itemWidth = computeWidth();
   applyTransform(true);
   schedule();
+}
+function initFlashMessages() {
+  const flashes = document.querySelectorAll('[data-flash]');
+  if (!flashes.length) {
+    clearContactParam();
+    return;
+  }
+  flashes.forEach((flash) => {
+    setTimeout(() => {
+      flash.classList.add('fade-out');
+    }, 3000);
+    setTimeout(() => {
+      flash.remove();
+      clearContactParam();
+    }, 3600);
+  });
+
+  function clearContactParam() {
+    const url = new URL(window.location.href);
+    if (url.searchParams.has('contact')) {
+      url.searchParams.delete('contact');
+      history.replaceState({}, document.title, url.pathname + (url.search ? `?${url.searchParams.toString()}` : '') + url.hash);
+    }
+  }
 }
