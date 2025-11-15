@@ -306,6 +306,61 @@ function themeOptions(): array
                 '--accent-strong' => '#f8f9fb',
             ],
         ],
+        'sunset' => [
+            'label' => 'Sunset Orange',
+            'vars' => [
+                '--bg-primary' => '#120704',
+                '--bg-secondary' => '#1f0b05',
+                '--text-primary' => '#fff2ec',
+                '--text-secondary' => '#f8c1a8',
+                '--accent' => '#ff7a45',
+                '--accent-strong' => '#ffb491',
+            ],
+        ],
+        'pacific' => [
+            'label' => 'Pacific Blue',
+            'vars' => [
+                '--bg-primary' => '#02080f',
+                '--bg-secondary' => '#08192a',
+                '--text-primary' => '#e8f4ff',
+                '--text-secondary' => '#9cc1e8',
+                '--accent' => '#4da3ff',
+                '--accent-strong' => '#73b9ff',
+            ],
+        ],
+        'emerald' => [
+            'label' => 'Emerald Green',
+            'vars' => [
+                '--bg-primary' => '#03100a',
+                '--bg-secondary' => '#072217',
+                '--text-primary' => '#e9fff3',
+                '--text-secondary' => '#a0d9b8',
+                '--accent' => '#34d399',
+                '--accent-strong' => '#6ee7b7',
+            ],
+        ],
+        'sunbeam' => [
+            'label' => 'Sunbeam Yellow',
+            'vars' => [
+                '--bg-primary' => '#0e0a02',
+                '--bg-secondary' => '#1a1303',
+                '--text-primary' => '#fffde7',
+                '--text-secondary' => '#f7e6a1',
+                '--accent' => '#facc15',
+                '--accent-strong' => '#fde047',
+            ],
+        ],
+        'crimson' => [
+            'label' => 'Crimson Rouge',
+            'vars' => [
+                '--bg-primary' => '#140307',
+                '--bg-secondary' => '#22050c',
+                '--text-primary' => '#ffe8ed',
+                '--text-secondary' => '#f4a6b8',
+                '--accent' => '#ff4d6d',
+                '--accent-strong' => '#ff809b',
+            ],
+        ],
     ];
 }
 
