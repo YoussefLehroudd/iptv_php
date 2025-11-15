@@ -7,7 +7,7 @@ return [
         'pass' => getenv('DB_PASS') ?: '',
         'charset' => 'utf8mb4',
     ],
-    'whatsapp_number' => getenv('WHATSAPP_NUMBER') ?: '+15145550000',
+    'whatsapp_number' => getenv('WHATSAPP_NUMBER') ?: '+212644819899',
     'brand_name' => getenv('BRAND_NAME') ?: 'ABDO IPTV CANADA',
     'cloudinary' => [
         'cloud_name' => getenv('CLOUDINARY_CLOUD_NAME') ?: 'dziwz75h6',

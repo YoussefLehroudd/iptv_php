@@ -144,7 +144,8 @@ img {
     white-space: nowrap;
 }
 
-.menu-toggle {
+.menu-toggle,
+.sidebar-toggle {
     display: none;
     align-items: center;
     justify-content: center;
@@ -161,7 +162,8 @@ img {
     z-index: 6;
 }
 
-.menu-toggle span:not(.sr-only) {
+.menu-toggle span:not(.sr-only),
+.sidebar-toggle span:not(.sr-only) {
     width: 22px;
     height: 2px;
     border-radius: 999px;
@@ -169,7 +171,8 @@ img {
     transition: transform 0.3s ease, opacity 0.3s ease;
 }
 
-.menu-toggle:focus-visible {
+.menu-toggle:focus-visible,
+.sidebar-toggle:focus-visible {
     outline: 2px solid rgba(255, 255, 255, 0.4);
     outline-offset: 2px;
 }
@@ -1067,44 +1070,31 @@ body.admin::after { right: -15vw; transform: scaleX(-1); }
     background: rgba(255, 255, 255, 0.02);
 }
 
-.sidebar-toggle {
-    display: none;
-    align-items: center;
-    justify-content: center;
-    width: 48px;
-    height: 48px;
-    border-radius: 16px;
-    border: 1px solid rgba(255, 255, 255, 0.2);
-    background: rgba(255, 255, 255, 0.04);
-    color: var(--text-primary);
-    cursor: pointer;
-    transition: border-color 0.2s ease, background 0.2s ease;
-}
-
-.sidebar-toggle span:not(.sr-only) {
-    display: block;
-    width: 22px;
-    height: 2px;
-    border-radius: 999px;
-    background: currentColor;
-    margin: 4px 0;
-    transition: transform 0.25s ease, opacity 0.25s ease;
-}
-
-.sidebar-toggle:hover {
-    border-color: rgba(255, 255, 255, 0.4);
-}
-
-body.sidebar-open .sidebar-toggle span:nth-child(1) {
+body.sidebar-open .sidebar-toggle span:nth-of-type(2) {
     transform: translateY(6px) rotate(45deg);
 }
 
-body.sidebar-open .sidebar-toggle span:nth-child(2) {
+body.sidebar-open .sidebar-toggle span:nth-of-type(3) {
     opacity: 0;
 }
 
-body.sidebar-open .sidebar-toggle span:nth-child(3) {
+body.sidebar-open .sidebar-toggle span:nth-of-type(4) {
     transform: translateY(-6px) rotate(-45deg);
+}
+
+@media (max-width: 960px) {
+    body.admin.sidebar-open .sidebar-toggle {
+        position: fixed;
+        top: 1rem;
+        right: auto;
+        left: calc(min(320px, 78vw) - 42px - 0.85rem);
+        background: rgba(3, 3, 5, 0.92);
+        border-color: rgba(255, 255, 255, 0.35);
+        box-shadow: 0 14px 28px rgba(0, 0, 0, 0.5);
+        z-index: 60;
+        margin-top: 0;
+        align-self: auto;
+    }
 }
 
 .sidebar-overlay {
@@ -1243,6 +1233,9 @@ body.sidebar-open .sidebar-overlay {
     gap: 0.8rem;
     position: relative;
     box-shadow: 0 20px 40px rgba(0, 0, 0, 0.35);
+    width: 100%;
+    max-width: 925px;
+    bottom: 31px;
 }
 
 .admin-section h2 {
@@ -1358,9 +1351,41 @@ body.sidebar-open .sidebar-overlay {
         padding: 1rem 1.25rem;
         border-radius: 20px;
         gap: 0.75rem;
+        flex-direction: column;
+        align-items: stretch;
+    }
+    .admin-bar-header-row {
+        display: flex;
+        width: 100%;
+        flex-direction: row;
+        align-items: center;
+        gap: 0.6rem;
+        order: 1;
+    }
+    .admin-bar-header-row > div {
+        flex: 1;
     }
     .sidebar-toggle {
         display: inline-flex;
+        width: 42px;
+        height: 42px;
+        border-radius: 12px;
+        gap: 0.25rem;
+        order: 0;
+        margin-top: 0;
+        align-self: auto;
+    }
+    .sidebar-toggle span:not(.sr-only) {
+        width: 20px;
+    }
+    .admin-bar > div:last-of-type {
+        order: 3;
+        width: 100%;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 0.4rem;
+        flex-wrap: wrap;
     }
     .admin-sidebar {
         position: fixed;
@@ -1776,7 +1801,8 @@ body.sidebar-open .sidebar-overlay {
     font-weight: 500;
 }
 
-.auth-card input {\n    width: 100%;
+.auth-card input {   
+    width: 100%;
     border-radius: 16px;
     border: 1px solid rgba(255, 255, 255, 0.18);
     background: rgba(255, 255, 255, 0.05);
@@ -1795,7 +1821,8 @@ body.sidebar-open .sidebar-overlay {
     box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.07);
 }
 
-.auth-card input {\n    width: 100%;
+.auth-card input {
+    width: 100%;
     border-radius: 16px;
 }
 

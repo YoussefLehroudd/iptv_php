@@ -247,15 +247,17 @@ $editingProvider = $editing['providers'];
 </head>
 <body class="admin">
 <header class="admin-bar">
-    <button class="sidebar-toggle" type="button" aria-controls="adminSidebar" aria-expanded="false" data-sidebar-toggle>
-        <span></span>
-        <span></span>
-        <span></span>
-        <span class="sr-only">Menu</span>
-    </button>
-    <div>
-        <h1>Panel ABDO IPTV</h1>
-        <p>Contrôle complet du contenu 2025</p>
+    <div class="admin-bar-header-row">
+        <button class="sidebar-toggle" type="button" aria-controls="adminSidebar" aria-expanded="false" data-sidebar-toggle>
+            <span class="sr-only">Menu</span>
+            <span></span>
+            <span></span>
+            <span></span>
+        </button>
+        <div>
+            <h1>Panel ABDO IPTV</h1>
+            <p>Contrôle complet du contenu 2025</p>
+        </div>
     </div>
     <div>
         <span><?= e($_SESSION['admin_email']) ?></span>
