@@ -346,11 +346,20 @@ function initOfferModal() {
 
 function initFaq() {
   document.querySelectorAll('.faq-question').forEach((button) => {
-    button.addEventListener('click', () => {
-      const id = button.dataset.faq;
-      const panel = document.querySelector(`[data-faq-panel="${id}"]`);
-      if (!panel) return;
-      panel.classList.toggle('open');
+    const id = button.dataset.faq;
+    const panel = document.querySelector(`[data-faq-panel="${id}"]`);
+    if (!panel) return;
+    button.setAttribute('aria-expanded', 'false');
+    const toggle = () => {
+      const isOpen = panel.classList.toggle('open');
+      button.setAttribute('aria-expanded', String(isOpen));
+    };
+    button.addEventListener('click', toggle);
+    button.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault();
+        toggle();
+      }
     });
   });
 }
