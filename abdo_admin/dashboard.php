@@ -17,15 +17,37 @@ function adminFlashRedirect(string $message, string $section, string $adminBase)
     exit;
 }
 
+function adminNavIcon(string $name): string
+{
+    static $icons = [
+        'content' => '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16c0 1.1.9 2 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="9" y1="13" x2="15" y2="13"></line><line x1="9" y1="17" x2="15" y2="17"></line></svg>',
+        'theme' => '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4a8 8 0 0 0-8 8 8 8 0 0 0 8 8h.5a1.5 1.5 0 0 0 0-3H12a3 3 0 0 1 0-6h1a3 3 0 0 0 3-3V9a5 5 0 0 0-5-5z"></path><circle cx="7.5" cy="10.5" r="1"></circle><circle cx="15" cy="8" r="1"></circle><circle cx="17.5" cy="12" r="1"></circle></svg>',
+        'slider' => '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"></rect><circle cx="8.5" cy="11" r="1.5"></circle><path d="M21 17l-5.5-5.5L11 16l-3-3-5 5"></path></svg>',
+        'offers' => '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="5" width="20" height="14" rx="2"></rect><line x1="2" y1="10" x2="22" y2="10"></line><line x1="7" y1="15" x2="9.5" y2="15"></line><line x1="12" y1="15" x2="17" y2="15"></line></svg>',
+        'providers' => '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="7" width="16" height="11" rx="2"></rect><path d="M12 3l-3 4"></path><path d="M12 3l3 4"></path></svg>',
+        'movies' => '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="5" width="20" height="14" rx="2"></rect><line x1="6" y1="3" x2="6" y2="7"></line><line x1="18" y1="3" x2="18" y2="7"></line><circle cx="9" cy="12" r="1.2"></circle><circle cx="15" cy="12" r="1.2"></circle></svg>',
+        'sports' => '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M5 12h14"></path><path d="M12 3a15 15 0 0 1 0 18"></path></svg>',
+        'video' => '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 11h16v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z"></path><path d="M4 7h16v4H4z"></path><path d="M5 7l2-3"></path><path d="M9 7l2-3"></path><path d="M13 7l2-3"></path></svg>',
+        'testimonials' => '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 8h10"></path><path d="M7 12h6"></path><path d="M21 11c0-4.97-4.03-9-9-9S3 6.03 3 11v10l4.5-3H12c4.97 0 9-4.03 9-9z"></path></svg>',
+        'messages' => '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 5H5a3 3 0 0 0-3 3v6a3 3 0 0 0 3 3h2v4l4-4h8a3 3 0 0 0 3-3V8a3 3 0 0 0-3-3z"></path></svg>',
+        'analytics' => '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 16l4-4 4 4 7-7"></path><path d="M20 13V9h-4"></path></svg>',
+    ];
+
+    return $icons[$name] ?? $icons['content'];
+}
+
 $navItems = [
-    'content' => ['label' => 'Hero & SEO', 'icon' => '📝'],
-    'theme' => ['label' => 'Thème & couleurs', 'icon' => '🎨'],
-    'slider' => ['label' => 'Slider hero', 'icon' => '🖼️'],
-    'offers' => ['label' => 'Offres IPTV', 'icon' => '💳'],
-    'providers' => ['label' => 'Providers', 'icon' => '📺'],
-    'video' => ['label' => 'Vidéo highlight', 'icon' => '🎬'],
-    'messages' => ['label' => 'Messages', 'icon' => '💬'],
-    'analytics' => ['label' => 'Analytics', 'icon' => '📈'],
+    'content' => ['label' => 'Hero & SEO', 'icon' => adminNavIcon('content')],
+    'theme' => ['label' => 'Theme & couleurs', 'icon' => adminNavIcon('theme')],
+    'slider' => ['label' => 'Slider hero', 'icon' => adminNavIcon('slider')],
+    'movies' => ['label' => 'Movies posters', 'icon' => adminNavIcon('movies')],
+    'sports' => ['label' => 'Sports events', 'icon' => adminNavIcon('sports')],
+    'testimonials' => ['label' => 'Temoignages', 'icon' => adminNavIcon('testimonials')],
+    'offers' => ['label' => 'Offres IPTV', 'icon' => adminNavIcon('offers')],
+    'providers' => ['label' => 'Providers', 'icon' => adminNavIcon('providers')],
+    'video' => ['label' => 'Video highlight', 'icon' => adminNavIcon('video')],
+    'messages' => ['label' => 'Messages', 'icon' => adminNavIcon('messages')],
+    'analytics' => ['label' => 'Analytics', 'icon' => adminNavIcon('analytics')],
 ];
 
 $currentSection = $_GET['section'] ?? 'content';
@@ -58,7 +80,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             foreach ($fields as $field) {
                 setSetting($pdo, $field, trim($_POST[$field] ?? ''), true);
             }
-            adminFlashRedirect('Contenu mis à jour.', 'content', $adminBase);
+            adminFlashRedirect('Contenu mise à jour.', 'content', $adminBase);
             break;
         case 'update_theme':
             $theme = $_POST['theme'] ?? 'onyx';
@@ -117,8 +139,115 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             'cta_description' => trim($_POST['cta_description'] ?? ''),
                             'id' => $sliderId,
                         ]);
-                        adminFlashRedirect('Slider mis à jour.', 'slider', $adminBase);
+                        adminFlashRedirect('Slider mise à jour.', 'slider', $adminBase);
                     }
+                }
+            }
+            break;
+        case 'add_movie_poster':
+            $title = trim($_POST['title'] ?? '');
+            $imageUrl = trim($_POST['image_url'] ?? '');
+            if (!empty($_FILES['image_file']['tmp_name'])) {
+                $upload = uploadToCloudinary($_FILES['image_file']['tmp_name'], 'iptv_abdo/movies', $config['cloudinary']);
+                if ($upload) {
+                    $imageUrl = $upload;
+                }
+            }
+            if ($title && $imageUrl) {
+                $stmt = $pdo->prepare('INSERT INTO movie_posters (title, image_url) VALUES (:title, :image)');
+                $stmt->execute(['title' => $title, 'image' => $imageUrl]);
+                adminFlashRedirect('Affiche ajouté.', 'movies', $adminBase);
+            }
+            break;
+        case 'update_movie_poster':
+            $posterId = (int) ($_POST['id'] ?? 0);
+            if ($posterId) {
+                $stmt = $pdo->prepare('SELECT * FROM movie_posters WHERE id = :id');
+                $stmt->execute(['id' => $posterId]);
+                if ($poster = $stmt->fetch(PDO::FETCH_ASSOC)) {
+                    $title = trim($_POST['title'] ?? '') ?: $poster['title'];
+                    $imageUrl = trim($_POST['image_url'] ?? '') ?: $poster['image_url'];
+                    if (!empty($_FILES['image_file']['tmp_name'])) {
+                        $upload = uploadToCloudinary($_FILES['image_file']['tmp_name'], 'iptv_abdo/movies', $config['cloudinary']);
+                        if ($upload) {
+                            $imageUrl = $upload;
+                        }
+                    }
+                    $stmt = $pdo->prepare('UPDATE movie_posters SET title = :title, image_url = :image WHERE id = :id');
+                    $stmt->execute(['title' => $title, 'image' => $imageUrl, 'id' => $posterId]);
+                    adminFlashRedirect('Affiche mise à jour.', 'movies', $adminBase);
+                }
+            }
+            break;
+        case 'add_sport_event':
+            $title = trim($_POST['title'] ?? '');
+            $imageUrl = trim($_POST['image_url'] ?? '');
+            if (!empty($_FILES['image_file']['tmp_name'])) {
+                $upload = uploadToCloudinary($_FILES['image_file']['tmp_name'], 'iptv_abdo/sports', $config['cloudinary']);
+                if ($upload) {
+                    $imageUrl = $upload;
+                }
+            }
+            if ($title && $imageUrl) {
+                $stmt = $pdo->prepare('INSERT INTO sport_events (title, image_url) VALUES (:title, :image)');
+                $stmt->execute(['title' => $title, 'image' => $imageUrl]);
+                adminFlashRedirect('Visuel sport ajout.', 'sports', $adminBase);
+            }
+            break;
+        case 'update_sport_event':
+            $eventId = (int) ($_POST['id'] ?? 0);
+            if ($eventId) {
+                $stmt = $pdo->prepare('SELECT * FROM sport_events WHERE id = :id');
+                $stmt->execute(['id' => $eventId]);
+                if ($event = $stmt->fetch(PDO::FETCH_ASSOC)) {
+                    $title = trim($_POST['title'] ?? '') ?: $event['title'];
+                    $imageUrl = trim($_POST['image_url'] ?? '') ?: $event['image_url'];
+                    if (!empty($_FILES['image_file']['tmp_name'])) {
+                        $upload = uploadToCloudinary($_FILES['image_file']['tmp_name'], 'iptv_abdo/sports', $config['cloudinary']);
+                        if ($upload) {
+                            $imageUrl = $upload;
+                        }
+                    }
+                    $stmt = $pdo->prepare('UPDATE sport_events SET title = :title, image_url = :image WHERE id = :id');
+                    $stmt->execute(['title' => $title, 'image' => $imageUrl, 'id' => $eventId]);
+                    adminFlashRedirect('Visuel sport mise à jour.', 'sports', $adminBase);
+                }
+            }
+            break;
+        case 'add_testimonial':
+            $name = trim($_POST['name'] ?? '');
+            $message = trim($_POST['message'] ?? '');
+            $captureUrl = trim($_POST['capture_url'] ?? '');
+            if (!empty($_FILES['capture_file']['tmp_name'])) {
+                $upload = uploadToCloudinary($_FILES['capture_file']['tmp_name'], 'iptv_abdo/testimonials', $config['cloudinary']);
+                if ($upload) {
+                    $captureUrl = $upload;
+                }
+            }
+            if ($name && $captureUrl) {
+                $stmt = $pdo->prepare('INSERT INTO testimonials (name, message, capture_url) VALUES (:name, :message, :capture)');
+                $stmt->execute(['name' => $name, 'message' => $message, 'capture' => $captureUrl]);
+                adminFlashRedirect('Temoignage ajoute.', 'testimonials', $adminBase);
+            }
+            break;
+        case 'update_testimonial':
+            $testimonialId = (int) ($_POST['id'] ?? 0);
+            if ($testimonialId) {
+                $stmt = $pdo->prepare('SELECT * FROM testimonials WHERE id = :id');
+                $stmt->execute(['id' => $testimonialId]);
+                if ($testimonial = $stmt->fetch(PDO::FETCH_ASSOC)) {
+                    $name = trim($_POST['name'] ?? '') ?: $testimonial['name'];
+                    $message = trim($_POST['message'] ?? '') ?: $testimonial['message'];
+                    $captureUrl = trim($_POST['capture_url'] ?? '') ?: $testimonial['capture_url'];
+                    if (!empty($_FILES['capture_file']['tmp_name'])) {
+                        $upload = uploadToCloudinary($_FILES['capture_file']['tmp_name'], 'iptv_abdo/testimonials', $config['cloudinary']);
+                        if ($upload) {
+                            $captureUrl = $upload;
+                        }
+                    }
+                    $stmt = $pdo->prepare('UPDATE testimonials SET name = :name, message = :message, capture_url = :capture WHERE id = :id');
+                    $stmt->execute(['name' => $name, 'message' => $message, 'capture' => $captureUrl, 'id' => $testimonialId]);
+                    adminFlashRedirect('Temoignage mise à jour.', 'testimonials', $adminBase);
                 }
             }
             break;
@@ -179,7 +308,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     if ($name && $logo) {
                         $stmt = $pdo->prepare('UPDATE providers SET name = :name, logo_url = :logo WHERE id = :id');
                         $stmt->execute(['name' => $name, 'logo' => $logo, 'id' => $providerId]);
-                        adminFlashRedirect('Provider mis à jour.', 'providers', $adminBase);
+                        adminFlashRedirect('Provider mise à jour.', 'providers', $adminBase);
                     }
                 }
             }
@@ -210,12 +339,22 @@ $themeVars = getActiveThemeVars($settings['active_theme'] ?? 'onyx');
 $sliders = fetchAllAssoc($pdo, 'SELECT * FROM sliders ORDER BY created_at DESC');
 $offers = fetchAllAssoc($pdo, 'SELECT * FROM offers ORDER BY created_at DESC');
 $providers = fetchAllAssoc($pdo, 'SELECT * FROM providers ORDER BY created_at DESC');
+$moviePosters = fetchAllAssoc($pdo, 'SELECT * FROM movie_posters ORDER BY created_at DESC');
+$sportEvents = fetchAllAssoc($pdo, 'SELECT * FROM sport_events ORDER BY created_at DESC');
+$testimonialGallery = fetchAllAssoc($pdo, 'SELECT * FROM testimonials ORDER BY created_at DESC');
 $video = getPrimaryVideo($pdo);
 $messages = getContactMessages($pdo);
 $visitStats = getVisitStats($pdo);
 $themes = themeOptions();
 
-$editing = ['sliders' => null, 'offers' => null, 'providers' => null];
+$editing = [
+    'sliders' => null,
+    'offers' => null,
+    'providers' => null,
+    'movie_posters' => null,
+    'sport_events' => null,
+    'testimonials' => null,
+];
 if (isset($_GET['edit'], $_GET['id'])) {
     $table = preg_replace('/[^a-z_]/', '', $_GET['edit']);
     $id = (int) $_GET['id'];
@@ -223,6 +362,9 @@ if (isset($_GET['edit'], $_GET['id'])) {
         'sliders' => $sliders,
         'offers' => $offers,
         'providers' => $providers,
+        'movie_posters' => $moviePosters,
+        'sport_events' => $sportEvents,
+        'testimonials' => $testimonialGallery,
     ];
     if (isset($collections[$table])) {
         foreach ($collections[$table] as $item) {
@@ -236,6 +378,9 @@ if (isset($_GET['edit'], $_GET['id'])) {
 $editingSlider = $editing['sliders'];
 $editingOffer = $editing['offers'];
 $editingProvider = $editing['providers'];
+$editingMoviePoster = $editing['movie_posters'];
+$editingSportEvent = $editing['sport_events'];
+$editingTestimonial = $editing['testimonials'];
 ?>
 <!DOCTYPE html>
 <html lang="fr">
@@ -273,7 +418,7 @@ $editingProvider = $editing['providers'];
         <nav class="sidebar-nav">
             <?php foreach ($navItems as $slug => $item): ?>
                 <a class="<?= $currentSection === $slug ? 'active' : '' ?>" href="<?= $adminBase ?>/dashboard.php?section=<?= $slug ?>">
-                    <span class="icon"><?= e($item['icon']) ?></span>
+                    <span class="icon"><?= $item['icon'] ?></span>
                     <span><?= e($item['label']) ?></span>
                 </a>
             <?php endforeach; ?>
@@ -378,7 +523,7 @@ $editingProvider = $editing['providers'];
                         <?php endif; ?>
                     </div>
                 </form>
-                <div class="list">
+                <div class="list slider-hero-list">
                     <?php foreach ($sliders as $slider): ?>
                         <article>
                             <div>
@@ -388,6 +533,153 @@ $editingProvider = $editing['providers'];
                             <div class="row-actions">
                                 <a class="link-light" href="<?= $adminBase ?>/dashboard.php?section=slider&edit=sliders&id=<?= (int) $slider['id'] ?>">Modifier</a>
                                 <a class="link-light" href="<?= $adminBase ?>/dashboard.php?section=slider&delete=sliders&id=<?= (int) $slider['id'] ?>">Supprimer</a>
+                            </div>
+                        </article>
+                    <?php endforeach; ?>
+                </div>
+            </section>
+        <?php elseif ($currentSection === 'movies'): ?>
+            <section class="admin-section">
+                <h2>Movies & TV posters</h2>
+                <?php $isEditingMovie = !empty($editingMoviePoster); ?>
+                <form method="POST" action="<?= $adminBase ?>/dashboard.php?section=movies" enctype="multipart/form-data">
+                    <input type="hidden" name="csrf_token" value="<?= e($_SESSION['admin_csrf']) ?>">
+                    <input type="hidden" name="action" value="<?= $isEditingMovie ? 'update_movie_poster' : 'add_movie_poster' ?>">
+                    <?php if ($isEditingMovie): ?>
+                        <input type="hidden" name="id" value="<?= (int) $editingMoviePoster['id'] ?>">
+                        <p class="form-note">Edition de <?= e($editingMoviePoster['title']) ?></p>
+                    <?php endif; ?>
+                    <label>Titre visuel
+                        <input type="text" name="title" value="<?= e($editingMoviePoster['title'] ?? '') ?>" required>
+                    </label>
+                    <label>URL image
+                        <input type="url" name="image_url" placeholder="https://" value="<?= e($editingMoviePoster['image_url'] ?? '') ?>">
+                        <?php if (!empty($editingMoviePoster['image_url'])): ?>
+                            <span class="form-note">Image actuelle : <?= e($editingMoviePoster['image_url']) ?></span>
+                        <?php endif; ?>
+                    </label>
+                    <label>Upload image
+                        <input type="file" name="image_file" accept="image/*">
+                    </label>
+                    <div class="form-actions">
+                        <button class="btn" type="submit"><?= $isEditingMovie ? 'Mettre à jour' : 'Ajouter' ?></button>
+                        <?php if ($isEditingMovie): ?>
+                            <a class="link-light small" href="<?= $adminBase ?>/dashboard.php?section=movies">Annuler</a>
+                        <?php endif; ?>
+                    </div>
+                </form>
+                <div class="list admin-media-list">
+                    <?php foreach ($moviePosters as $poster): ?>
+                        <article>
+                            <div class="admin-media-thumb">
+                                <img src="<?= e($poster['image_url']) ?>" alt="<?= e($poster['title']) ?>">
+                                <div>
+                                    <strong><?= e($poster['title']) ?></strong>
+                                </div>
+                            </div>
+                            <div class="row-actions">
+                                <a class="link-light" href="<?= $adminBase ?>/dashboard.php?section=movies&edit=movie_posters&id=<?= (int) $poster['id'] ?>">Modifier</a>
+                                <a class="link-light" href="<?= $adminBase ?>/dashboard.php?section=movies&delete=movie_posters&id=<?= (int) $poster['id'] ?>">Supprimer</a>
+                            </div>
+                        </article>
+                    <?php endforeach; ?>
+                </div>
+            </section>
+        <?php elseif ($currentSection === 'sports'): ?>
+            <section class="admin-section">
+                <h2>Sports events</h2>
+                <?php $isEditingSport = !empty($editingSportEvent); ?>
+                <form method="POST" action="<?= $adminBase ?>/dashboard.php?section=sports" enctype="multipart/form-data">
+                    <input type="hidden" name="csrf_token" value="<?= e($_SESSION['admin_csrf']) ?>">
+                    <input type="hidden" name="action" value="<?= $isEditingSport ? 'update_sport_event' : 'add_sport_event' ?>">
+                    <?php if ($isEditingSport): ?>
+                        <input type="hidden" name="id" value="<?= (int) $editingSportEvent['id'] ?>">
+                        <p class="form-note">Edition de <?= e($editingSportEvent['title']) ?></p>
+                    <?php endif; ?>
+                    <label>Titre visuel
+                        <input type="text" name="title" value="<?= e($editingSportEvent['title'] ?? '') ?>" required>
+                    </label>
+                    <label>URL image
+                        <input type="url" name="image_url" placeholder="https://" value="<?= e($editingSportEvent['image_url'] ?? '') ?>">
+                        <?php if (!empty($editingSportEvent['image_url'])): ?>
+                            <span class="form-note">Image actuelle : <?= e($editingSportEvent['image_url']) ?></span>
+                        <?php endif; ?>
+                    </label>
+                    <label>Upload image
+                        <input type="file" name="image_file" accept="image/*">
+                    </label>
+                    <div class="form-actions">
+                        <button class="btn" type="submit"><?= $isEditingSport ? 'Mettre à jour' : 'Ajouter' ?></button>
+                        <?php if ($isEditingSport): ?>
+                            <a class="link-light small" href="<?= $adminBase ?>/dashboard.php?section=sports">Annuler</a>
+                        <?php endif; ?>
+                    </div>
+                </form>
+                <div class="list admin-media-list">
+                    <?php foreach ($sportEvents as $event): ?>
+                        <article>
+                            <div class="admin-media-thumb">
+                                <img src="<?= e($event['image_url']) ?>" alt="<?= e($event['title']) ?>">
+                                <div>
+                                    <strong><?= e($event['title']) ?></strong>
+                                </div>
+                            </div>
+                            <div class="row-actions">
+                                <a class="link-light" href="<?= $adminBase ?>/dashboard.php?section=sports&edit=sport_events&id=<?= (int) $event['id'] ?>">Modifier</a>
+                                <a class="link-light" href="<?= $adminBase ?>/dashboard.php?section=sports&delete=sport_events&id=<?= (int) $event['id'] ?>">Supprimer</a>
+                            </div>
+                        </article>
+                    <?php endforeach; ?>
+                </div>
+            </section>
+        <?php elseif ($currentSection === 'testimonials'): ?>
+            <section class="admin-section">
+                <h2>Temoignages visuels</h2>
+                <?php $isEditingTestimonial = !empty($editingTestimonial); ?>
+                <form method="POST" action="<?= $adminBase ?>/dashboard.php?section=testimonials" enctype="multipart/form-data">
+                    <input type="hidden" name="csrf_token" value="<?= e($_SESSION['admin_csrf']) ?>">
+                    <input type="hidden" name="action" value="<?= $isEditingTestimonial ? 'update_testimonial' : 'add_testimonial' ?>">
+                    <?php if ($isEditingTestimonial): ?>
+                        <input type="hidden" name="id" value="<?= (int) $editingTestimonial['id'] ?>">
+                        <p class="form-note">Edition de <?= e($editingTestimonial['name']) ?></p>
+                    <?php endif; ?>
+                    <label>Nom / localisation
+                        <input type="text" name="name" value="<?= e($editingTestimonial['name'] ?? '') ?>" required>
+                    </label>
+                    <label>Message
+                        <textarea name="message" rows="3"><?= e($editingTestimonial['message'] ?? '') ?></textarea>
+                    </label>
+                    <label>URL capture
+                        <input type="url" name="capture_url" placeholder="https://" value="<?= e($editingTestimonial['capture_url'] ?? '') ?>">
+                        <?php if (!empty($editingTestimonial['capture_url'])): ?>
+                            <span class="form-note">Capture actuelle : <?= e($editingTestimonial['capture_url']) ?></span>
+                        <?php endif; ?>
+                    </label>
+                    <label>Upload capture
+                        <input type="file" name="capture_file" accept="image/*">
+                    </label>
+                    <div class="form-actions">
+                        <button class="btn" type="submit"><?= $isEditingTestimonial ? 'Mettre à jour' : 'Ajouter' ?></button>
+                        <?php if ($isEditingTestimonial): ?>
+                            <a class="link-light small" href="<?= $adminBase ?>/dashboard.php?section=testimonials">Annuler</a>
+                        <?php endif; ?>
+                    </div>
+                </form>
+                <div class="list admin-media-list">
+                    <?php foreach ($testimonialGallery as $testimonial): ?>
+                        <article>
+                            <div class="admin-media-thumb">
+                                <img src="<?= e($testimonial['capture_url']) ?>" alt="<?= e($testimonial['name']) ?>">
+                                <div>
+                                    <strong><?= e($testimonial['name']) ?></strong>
+                                    <?php if (!empty($testimonial['message'])): ?>
+                                        <small><?= e($testimonial['message']) ?></small>
+                                    <?php endif; ?>
+                                </div>
+                            </div>
+                            <div class="row-actions">
+                                <a class="link-light" href="<?= $adminBase ?>/dashboard.php?section=testimonials&edit=testimonials&id=<?= (int) $testimonial['id'] ?>">Modifier</a>
+                                <a class="link-light" href="<?= $adminBase ?>/dashboard.php?section=testimonials&delete=testimonials&id=<?= (int) $testimonial['id'] ?>">Supprimer</a>
                             </div>
                         </article>
                     <?php endforeach; ?>

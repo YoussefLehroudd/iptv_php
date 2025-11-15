@@ -58,12 +58,40 @@ function initializeDatabase(PDO $pdo, array $config): void
     SQL);
 
     $pdo->exec(<<<SQL
+        CREATE TABLE IF NOT EXISTS movie_posters (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            title VARCHAR(255) NOT NULL,
+            image_url TEXT NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    SQL);
+
+    $pdo->exec(<<<SQL
+        CREATE TABLE IF NOT EXISTS sport_events (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            title VARCHAR(255) NOT NULL,
+            image_url TEXT NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    SQL);
+
+    $pdo->exec(<<<SQL
         CREATE TABLE IF NOT EXISTS videos (
             id INT AUTO_INCREMENT PRIMARY KEY,
             title VARCHAR(255) NOT NULL,
             description TEXT NULL,
             url TEXT NOT NULL,
             thumbnail_url TEXT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    SQL);
+
+    $pdo->exec(<<<SQL
+        CREATE TABLE IF NOT EXISTS testimonials (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            name VARCHAR(255) NOT NULL,
+            message TEXT NULL,
+            capture_url TEXT NOT NULL,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
     SQL);
@@ -202,6 +230,56 @@ function initializeDatabase(PDO $pdo, array $config): void
     foreach ($providerUpdates as $old => $newUrl) {
         $stmt = $pdo->prepare('UPDATE providers SET logo_url = :new WHERE logo_url = :old');
         $stmt->execute(['new' => $newUrl, 'old' => $old]);
+    }
+
+    if ((int) $pdo->query('SELECT COUNT(*) FROM movie_posters')->fetchColumn() === 0) {
+        $defaults = [
+            ['title' => 'Kung Fu Panda 4', 'image_url' => 'https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=900&q=80'],
+            ['title' => 'The Beekeeper', 'image_url' => 'https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?auto=format&fit=crop&w=900&q=80'],
+            ['title' => 'Kingdom of the Planet of the Apes', 'image_url' => 'https://images.unsplash.com/photo-1500534314209-a25ddb2bd429?auto=format&fit=crop&w=900&q=80'],
+            ['title' => 'Furiosa', 'image_url' => 'https://images.unsplash.com/photo-1469474968028-56623f02e42e?auto=format&fit=crop&w=900&q=80'],
+        ];
+        $stmt = $pdo->prepare('INSERT INTO movie_posters (title, image_url) VALUES (:title, :image_url)');
+        foreach ($defaults as $poster) {
+            $stmt->execute($poster);
+        }
+    }
+
+    if ((int) $pdo->query('SELECT COUNT(*) FROM sport_events')->fetchColumn() === 0) {
+        $defaults = [
+            ['title' => 'Formula 1', 'image_url' => 'https://images.unsplash.com/photo-1503736334956-4c8f8e92946d?auto=format&fit=crop&w=900&q=80'],
+            ['title' => 'NBA Playoffs', 'image_url' => 'https://images.unsplash.com/photo-1519860433024-3b7ee302e518?auto=format&fit=crop&w=900&q=80'],
+            ['title' => 'Euro 2024', 'image_url' => 'https://images.unsplash.com/photo-1489515217757-5fd1be406fef?auto=format&fit=crop&w=900&q=80'],
+            ['title' => 'UFC Fight Night', 'image_url' => 'https://images.unsplash.com/photo-1521410195597-46b98096d2f2?auto=format&fit=crop&w=900&q=80'],
+        ];
+        $stmt = $pdo->prepare('INSERT INTO sport_events (title, image_url) VALUES (:title, :image_url)');
+        foreach ($defaults as $event) {
+            $stmt->execute($event);
+        }
+    }
+
+    if ((int) $pdo->query('SELECT COUNT(*) FROM testimonials')->fetchColumn() === 0) {
+        $defaults = [
+            [
+                'name' => 'Nadia - Ottawa',
+                'message' => 'Support WhatsApp toujours pr�sent, j\'ai renouvel� pour 12 mois direct.',
+                'capture_url' => 'https://images.unsplash.com/photo-1504593811423-6dd665756598?auto=format&fit=crop&w=800&q=80',
+            ],
+            [
+                'name' => 'Adam - Montr�al',
+                'message' => 'Zero coupure pendant les playoffs NBA, la qualit� 4K est folle.',
+                'capture_url' => 'https://images.unsplash.com/photo-1544723795-3fb6469f5b39?auto=format&fit=crop&w=800&q=80',
+            ],
+            [
+                'name' => 'Sofia - Qu�bec',
+                'message' => 'Activation en 5 minutes via WhatsApp. Je recommande � 100%.',
+                'capture_url' => 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?auto=format&fit=crop&w=800&q=80',
+            ],
+        ];
+        $stmt = $pdo->prepare('INSERT INTO testimonials (name, message, capture_url) VALUES (:name, :message, :capture_url)');
+        foreach ($defaults as $testimonial) {
+            $stmt->execute($testimonial);
+        }
     }
 
     if ((int) $pdo->query('SELECT COUNT(*) FROM videos')->fetchColumn() === 0) {
@@ -554,7 +632,7 @@ function markMessageAsRead(PDO $pdo, int $id): void
 
 function deleteRecord(PDO $pdo, string $table, int $id): void
 {
-    $allowed = ['offers', 'sliders', 'providers', 'videos'];
+    $allowed = ['offers', 'sliders', 'providers', 'videos', 'movie_posters', 'sport_events', 'testimonials'];
     if (!in_array($table, $allowed, true)) {
         return;
     }

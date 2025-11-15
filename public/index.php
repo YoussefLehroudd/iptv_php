@@ -49,21 +49,40 @@ $structuredData = [
     }, $offers),
 ];
 
-$moviePosters = [
-    ['title' => 'Kung Fu Panda 4', 'image' => $mediaBase . '/kfp4.webp'],
-    ['title' => 'The Beekeeper', 'image' => $mediaBase . '/beekeeper.webp'],
-    ['title' => 'Kingdom of the Planet of the Apes', 'image' => $mediaBase . '/apes.webp'],
-    ['title' => 'Furiosa', 'image' => $mediaBase . '/furiosa.webp'],
-    ['title' => 'The Queen\'s Gambit', 'image' => $mediaBase . '/queens.webp'],
+$defaultMoviePosters = [
+    ['title' => 'Kung Fu Panda 4', 'image_url' => $mediaBase . '/kfp4.webp'],
+    ['title' => 'The Beekeeper', 'image_url' => $mediaBase . '/beekeeper.webp'],
+    ['title' => 'Kingdom of the Planet of the Apes', 'image_url' => $mediaBase . '/apes.webp'],
+    ['title' => 'Furiosa', 'image_url' => $mediaBase . '/furiosa.webp'],
+    ['title' => 'The Queen\'s Gambit', 'image_url' => $mediaBase . '/queens.webp'],
 ];
 
-$sportEvents = [
-    ['title' => 'Formula 1', 'image' => $mediaBase . '/f1.webp'],
-    ['title' => 'LaLiga', 'image' => $mediaBase . '/laliga.webp'],
-    ['title' => 'NBA Playoffs', 'image' => $mediaBase . '/nba.webp'],
-    ['title' => 'Bundesliga', 'image' => $mediaBase . '/bundesliga.webp'],
-    ['title' => 'Euro 2024', 'image' => $mediaBase . '/euro.webp'],
+$defaultSportEvents = [
+    ['title' => 'Formula 1', 'image_url' => $mediaBase . '/f1.webp'],
+    ['title' => 'LaLiga', 'image_url' => $mediaBase . '/laliga.webp'],
+    ['title' => 'NBA Playoffs', 'image_url' => $mediaBase . '/nba.webp'],
+    ['title' => 'Bundesliga', 'image_url' => $mediaBase . '/bundesliga.webp'],
+    ['title' => 'Euro 2024', 'image_url' => $mediaBase . '/euro.webp'],
 ];
+
+$defaultTestimonials = [
+    ['name' => 'Omar - Montréal', 'message' => 'Service rapide, zéro freeze pendant les matchs de NHL. Merci !', 'capture_url' => $mediaBase . '/wa-1.webp'],
+    ['name' => 'Nadia - Ottawa', 'message' => 'Support WhatsApp toujours présent, j\'ai renouvelé pour 12 mois direct.', 'capture_url' => $mediaBase . '/wa-2.webp'],
+    ['name' => 'Youssef - Québec', 'message' => 'Les VOD sont mis à jour tous les jours. Netflix, Apple TV+, tout y est.', 'capture_url' => $mediaBase . '/wa-3.webp'],
+];
+
+$moviePosters = fetchAllAssoc($pdo, 'SELECT id, title, image_url FROM movie_posters ORDER BY created_at DESC');
+if (!$moviePosters) {
+    $moviePosters = $defaultMoviePosters;
+}
+$sportEvents = fetchAllAssoc($pdo, 'SELECT id, title, image_url FROM sport_events ORDER BY created_at DESC');
+if (!$sportEvents) {
+    $sportEvents = $defaultSportEvents;
+}
+$testimonials = fetchAllAssoc($pdo, 'SELECT id, name, message, capture_url FROM testimonials ORDER BY created_at DESC');
+if (!$testimonials) {
+    $testimonials = $defaultTestimonials;
+}
 
 $deviceBadges = [
     'Android',
@@ -86,11 +105,6 @@ $faqs = [
     ['question' => 'Quels modes de paiement ?', 'answer' => 'Interac, virement bancaire, crypto USDT ou PayPal selon disponibilitÃ©.'],
 ];
 
-$testimonials = [
-    ['name' => 'Omar - Montrï¿½al', 'message' => 'Service rapide, zï¿½ro freeze pendant les matchs de NHL. Merci !', 'capture' => $mediaBase . '/wa-1.webp'],
-    ['name' => 'Nadia - Ottawa', 'message' => 'Support WhatsApp toujours prï¿½sent, j\'ai renouvelï¿½ pour 12 mois direct.', 'capture' => $mediaBase . '/wa-2.webp'],
-    ['name' => 'Youssef - Quï¿½bec', 'message' => 'Les VOD sont mis ï¿½ jour tous les jours. Netflix, Apple TV+, tout y est.', 'capture' => $mediaBase . '/wa-3.webp'],
-];
 ?>
 <!DOCTYPE html>
 <html lang="fr">
@@ -176,34 +190,36 @@ $testimonials = [
             <div class="hero-visual">
                 <div class="screen-frame">
                     <div class="slider" data-slider="hero">
-                        <?php foreach ($sliders as $slider): ?>
-                            <article class="slide">
-                                <div class="media">
-                                    <?php if ($slider['media_type'] === 'video'): ?>
-                                        <div class="video-frame">
-                                            <video autoplay muted playsinline>
-                                                <source src="<?= e($slider['media_url']) ?>" type="video/mp4">
-                                            </video>
-                                            <button class="video-audio-toggle" type="button" aria-pressed="false" data-video-toggle>
-                                                <span class="sr-only">Activer le son</span>
-                                                <svg class="icon-sound" viewBox="0 0 24 24" aria-hidden="true">
-                                                    <path fill="currentColor" d="M5 9v6h3l4 4V5L8 9H5zm10.5 3a3 3 0 0 0-1.5-2.6v5.2a3 3 0 0 0 1.5-2.6zm-1.5-6.3v2.1a5 5 0 0 1 0 8.4v2.1a7 7 0 0 0 0-12.6z"/>
-                                                </svg>
-                                                <svg class="icon-muted" viewBox="0 0 24 24" aria-hidden="true">
-                                                    <path fill="currentColor" d="M16.5 12a3 3 0 0 1-.9 2.1l1.4 1.4A4.98 4.98 0 0 0 18.5 12a4.98 4.98 0 0 0-1.5-3.5l-1.4 1.4c.6.5.9 1.2.9 2.1zm3.5 0a7 7 0 0 0-2-5l-1.4 1.4A4.99 4.99 0 0 1 20 12a4.99 4.99 0 0 1-1.4 3.6L20 17a6.99 6.99 0 0 0 0-10zm-2.3 9.7L3.3 7.8 4.7 6.4 10 11h2V5l4 4h3v6h-2.2l2.5 2.5-1.4 1.4zM5 9v6h3l4 4v-6.2l5.2 5.2-1.4 1.4L12 19l-4 4H5v-6H2V9h3z"/>
-                                                </svg>
-                                            </button>
-                                        </div>
-                                    <?php else: ?>
-                                        <img src="<?= e($slider['media_url']) ?>" alt="<?= e($slider['title']) ?>">
-                                    <?php endif; ?>
-                                </div>
-                                <div class="copy">
-                                    <h3><?= e($slider['title']) ?></h3>
-                                    <p><?= e($slider['subtitle']) ?></p>
-                                </div>
-                            </article>
-                        <?php endforeach; ?>
+                        <div class="slider-track">
+                            <?php foreach ($sliders as $slider): ?>
+                                <article class="slide">
+                                    <div class="media">
+                                        <?php if ($slider['media_type'] === 'video'): ?>
+                                            <div class="video-frame">
+                                                <video autoplay muted playsinline>
+                                                    <source src="<?= e($slider['media_url']) ?>" type="video/mp4">
+                                                </video>
+                                                <button class="video-audio-toggle" type="button" aria-pressed="false" data-video-toggle>
+                                                    <span class="sr-only">Activer le son</span>
+                                                    <svg class="icon-sound" viewBox="0 0 24 24" aria-hidden="true">
+                                                        <path fill="currentColor" d="M5 9v6h3l4 4V5L8 9H5zm10.5 3a3 3 0 0 0-1.5-2.6v5.2a3 3 0 0 0 1.5-2.6zm-1.5-6.3v2.1a5 5 0 0 1 0 8.4v2.1a7 7 0 0 0 0-12.6z"/>
+                                                    </svg>
+                                                    <svg class="icon-muted" viewBox="0 0 24 24" aria-hidden="true">
+                                                        <path fill="currentColor" d="M16.5 12a3 3 0 0 1-.9 2.1l1.4 1.4A4.98 4.98 0 0 0 18.5 12a4.98 4.98 0 0 0-1.5-3.5l-1.4 1.4c.6.5.9 1.2.9 2.1zm3.5 0a7 7 0 0 0-2-5l-1.4 1.4A4.99 4.99 0 0 1 20 12a4.99 4.99 0 0 1-1.4 3.6L20 17a6.99 6.99 0 0 0 0-10zm-2.3 9.7L3.3 7.8 4.7 6.4 10 11h2V5l4 4h3v6h-2.2l2.5 2.5-1.4 1.4zM5 9v6h3l4 4v-6.2l5.2 5.2-1.4 1.4L12 19l-4 4H5v-6H2V9h3z"/>
+                                                    </svg>
+                                                </button>
+                                            </div>
+                                        <?php else: ?>
+                                            <img src="<?= e($slider['media_url']) ?>" alt="<?= e($slider['title']) ?>">
+                                        <?php endif; ?>
+                                    </div>
+                                    <div class="copy">
+                                        <h3><?= e($slider['title']) ?></h3>
+                                        <p><?= e($slider['subtitle']) ?></p>
+                                    </div>
+                                </article>
+                            <?php endforeach; ?>
+                        </div>
                     </div>
                     <div class="slider-nav" data-slider-nav="hero">
                         <button type="button" data-slider-target="hero" data-direction="prev">â€¹</button>
@@ -290,13 +306,14 @@ $testimonials = [
                 <h2>Latest blockbuster posters</h2>
             </div>
             <div class="media-carousel">
-                <div class="slider" data-slider="movies">
-                    <?php foreach ($moviePosters as $poster): ?>
-                        <article class="slide poster">
-                            <img src="<?= e($poster['image']) ?>" alt="<?= e($poster['title']) ?>">
-                            <span><?= e($poster['title']) ?></span>
-                        </article>
-                    <?php endforeach; ?>
+                <div class="slider" data-slider="movies" data-visible="4" data-infinite="true">
+                    <div class="slider-track">
+                        <?php foreach ($moviePosters as $poster): ?>
+                            <article class="slide poster">
+                                <img src="<?= e($poster['image_url']) ?>" alt="<?= e($poster['title']) ?>">
+                            </article>
+                        <?php endforeach; ?>
+                    </div>
                 </div>
                 <div class="slider-nav" data-slider-nav="movies">
                     <button type="button" data-slider-target="movies" data-direction="prev">â€¹</button>
@@ -311,13 +328,14 @@ $testimonials = [
                 <h2>Football Â· NBA Â· F1 Â· UFC</h2>
             </div>
             <div class="media-carousel">
-                <div class="slider" data-slider="sports">
-                    <?php foreach ($sportEvents as $event): ?>
-                        <article class="slide poster">
-                            <img src="<?= e($event['image']) ?>" alt="<?= e($event['title']) ?>">
-                            <span><?= e($event['title']) ?></span>
-                        </article>
-                    <?php endforeach; ?>
+                <div class="slider" data-slider="sports" data-visible="4" data-infinite="true">
+                    <div class="slider-track">
+                        <?php foreach ($sportEvents as $event): ?>
+                            <article class="slide poster">
+                                <img src="<?= e($event['image_url']) ?>" alt="<?= e($event['title']) ?>">
+                            </article>
+                        <?php endforeach; ?>
+                    </div>
                 </div>
                 <div class="slider-nav" data-slider-nav="sports">
                     <button type="button" data-slider-target="sports" data-direction="prev">â€¹</button>
@@ -364,20 +382,18 @@ $testimonials = [
                 <h2>Hear from our satisfied customers</h2>
             </div>
             <div class="media-carousel">
-                <div class="slider" data-slider="testimonials">
-                    <?php foreach ($testimonials as $testimonial): ?>
-                        <article class="slide testimonial">
-                            <img src="<?= e($testimonial['capture']) ?>" alt="Capture WhatsApp">
-                            <div>
-                                <strong><?= e($testimonial['name']) ?></strong>
-                                <p><?= e($testimonial['message']) ?></p>
-                            </div>
-                        </article>
-                    <?php endforeach; ?>
+                <div class="slider" data-slider="testimonials" data-visible="4">
+                    <div class="slider-track">
+                        <?php foreach ($testimonials as $testimonial): ?>
+                            <article class="slide testimonial">
+                                <img src="<?= e($testimonial['capture_url']) ?>" alt="Témoignage <?= e($testimonial['name']) ?>">
+                            </article>
+                        <?php endforeach; ?>
+                    </div>
                 </div>
                 <div class="slider-nav" data-slider-nav="testimonials">
-                    <button type="button" data-slider-target="testimonials" data-direction="prev">â€¹</button>
-                    <button type="button" data-slider-target="testimonials" data-direction="next">â€º</button>
+                    <button type="button" data-slider-target="testimonials" data-direction="prev"><</button>
+                    <button type="button" data-slider-target="testimonials" data-direction="next">></button>
                 </div>
             </div>
         </section>

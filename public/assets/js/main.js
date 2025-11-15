@@ -46,6 +46,97 @@ function initSliders() {
     }
   };
 
+  const applyVisibleCount = (state) => {
+    if (state.mode !== 'multi') return;
+    let visible = state.visibleBase;
+    if (visible > 1) {
+      if (window.matchMedia('(max-width: 640px)').matches) {
+        visible = 1;
+      } else if (window.matchMedia('(max-width: 960px)').matches) {
+        visible = Math.min(2, state.visibleBase);
+      } else if (window.matchMedia('(max-width: 1280px)').matches) {
+        visible = Math.min(3, state.visibleBase);
+      }
+    }
+    if (visible !== state.visible) {
+      state.visible = visible;
+      state.current = Math.min(state.current, Math.max(state.slides.length - visible, 0));
+    }
+    state.slider.style.setProperty('--visible', String(visible));
+  };
+
+  const cloneSlides = (state) => {
+    if (!state.slider.hasAttribute('data-infinite') || state.cloned) return;
+    state.slides.forEach((slide) => {
+      const clone = slide.cloneNode(true);
+      clone.setAttribute('aria-hidden', 'true');
+      state.track.appendChild(clone);
+    });
+    state.slides = Array.from(state.track.querySelectorAll('.slide'));
+    state.cloned = true;
+  };
+
+  const measureMulti = (state) => {
+    if (state.mode !== 'multi') return;
+    cloneSlides(state);
+    applyVisibleCount(state);
+    const first = state.slides[0];
+    if (!first) return;
+    const firstRect = first.getBoundingClientRect();
+    if (!firstRect.width) return;
+    let step = firstRect.width;
+    if (state.slides[1]) {
+      const secondRect = state.slides[1].getBoundingClientRect();
+      step = secondRect.left - firstRect.left;
+    } else {
+      const styles = window.getComputedStyle(state.track);
+      const gap = parseFloat(styles.columnGap || styles.gap || '0') || 0;
+      step += gap;
+    }
+    state.step = step;
+    state.track.style.transform = `translateX(${-(state.current * step)}px)`;
+  };
+
+  const updateMultiTransform = (state) => {
+    if (state.mode !== 'multi') return;
+    if (!state.step) {
+      measureMulti(state);
+      return;
+    }
+    state.track.style.transform = `translateX(${-(state.current * state.step)}px)`;
+  };
+
+  const updateSlides = (state) => {
+    if (!state) return;
+    if (state.mode === 'multi') {
+      updateMultiTransform(state);
+      return;
+    }
+    state.slides.forEach((slide, idx) => {
+      const isActive = idx === state.current;
+      slide.classList.toggle('active', isActive);
+      const video = slide.querySelector('video');
+      if (video) {
+        if (!isActive) {
+          video.pause?.();
+          video.currentTime = 0;
+          video.muted = true;
+          video.loop = false;
+        } else {
+          video.pause?.();
+          video.currentTime = 0;
+          video.muted = true;
+          video.loop = false;
+          const playPromise = video.play?.();
+          if (playPromise && typeof playPromise.catch === 'function') {
+            playPromise.catch(() => {});
+          }
+        }
+        updateToggleState(findVideoToggle(video), video);
+      }
+    });
+  };
+
   const queueNext = (id) => {
     const state = sliderStates[id];
     if (!state || !state.autoDelay) return;
@@ -77,49 +168,67 @@ function initSliders() {
   const changeSlide = (id, direction) => {
     const state = sliderStates[id];
     if (!state) return;
-    const { slides } = state;
     clearAutoAdvance(state);
-    state.current = (state.current + direction + slides.length) % slides.length;
-    slides.forEach((slide, idx) => {
-      const isActive = idx === state.current;
-      slide.classList.toggle('active', isActive);
-      const video = slide.querySelector('video');
-      if (video) {
-        if (!isActive) {
-          video.pause?.();
-          video.currentTime = 0;
-          video.muted = true;
-          video.loop = false;
-        } else {
-          video.pause?.();
-          video.currentTime = 0;
-          video.muted = true;
-          video.loop = false;
-          const playPromise = video.play?.();
-          if (playPromise && typeof playPromise.catch === 'function') {
-            playPromise.catch(() => {});
-          }
-        }
-        updateToggleState(findVideoToggle(video), video);
+    if (state.mode === 'multi') {
+      applyVisibleCount(state);
+      cloneSlides(state);
+      const limit = Math.max(state.slides.length - state.visible, 0);
+      if (limit <= 0) {
+        state.current = 0;
+        updateSlides(state);
+        return;
       }
-    });
+      state.current += direction;
+      if (state.slider.hasAttribute('data-infinite')) {
+        if (state.current < 0) {
+          state.current = limit;
+        } else if (state.current > limit) {
+          state.current = 0;
+        }
+      } else {
+        if (state.current > limit) state.current = 0;
+        if (state.current < 0) state.current = limit;
+      }
+      updateSlides(state);
+      queueNext(id);
+      return;
+    }
+    const { slides } = state;
+    state.current = (state.current + direction + slides.length) % slides.length;
+    updateSlides(state);
     queueNext(id);
   };
 
   document.querySelectorAll('[data-slider]').forEach((slider, index) => {
-    const slides = Array.from(slider.querySelectorAll('.slide'));
+    const track = slider.querySelector('.slider-track') || slider;
+    const slides = Array.from(track.querySelectorAll('.slide'));
     if (!slides.length) return;
     const id = slider.dataset.slider || `slider-${index}`;
+    const visibleBase = parseInt(slider.dataset.visible || '1', 10);
+    const mode = visibleBase > 1 ? 'multi' : 'single';
     slider.dataset.slider = id;
     sliderStates[id] = {
+      slider,
+      track,
       slides,
       current: 0,
       autoDelay: autoConfigs[id] || null,
       timer: null,
       videoEl: null,
       videoHandler: null,
+      mode,
+      visibleBase,
+      visible: mode === 'multi' ? visibleBase : 1,
+      step: 0,
+      cloned: false,
     };
-    slides[0].classList.add('active');
+    if (mode === 'multi') {
+      applyVisibleCount(sliderStates[id]);
+      slides.forEach((slide) => slide.classList.add('active'));
+      requestAnimationFrame(() => measureMulti(sliderStates[id]));
+    } else {
+      slides[0].classList.add('active');
+    }
     if (sliderStates[id].autoDelay) {
       queueNext(id);
     }
@@ -149,6 +258,15 @@ function initSliders() {
         }
       }
       updateToggleState(button, video);
+    });
+  });
+
+  window.addEventListener('resize', () => {
+    Object.values(sliderStates).forEach((state) => {
+      if (state.mode === 'multi') {
+        state.step = 0;
+        measureMulti(state);
+      }
     });
   });
 }
