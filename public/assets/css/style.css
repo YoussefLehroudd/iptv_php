@@ -828,6 +828,12 @@ main {
     border-radius: 14px;
     object-fit: cover;
     width: 100%;
+    transition: transform 0.4s ease;
+}
+
+.media-section .slide:hover img,
+.testimonials .slide:hover img {
+    transform: scale(1.05);
 }
 
 .testimonials .slide img {
