@@ -1069,7 +1069,7 @@ body.admin::after { right: -15vw; transform: scaleX(-1); }
 
 .admin-layout {
     width: min(1200px, 92vw);
-    margin: 0 auto 4rem;
+    margin: 1.5rem auto 4rem;
     display: grid;
     grid-template-columns: 260px minmax(0, 1fr);
     column-gap: 1rem;
@@ -1177,6 +1177,8 @@ body.admin::after { right: -15vw; transform: scaleX(-1); }
     gap: 1rem;
     position: relative;
     box-shadow: 0 20px 40px rgba(0, 0, 0, 0.35);
+    max-width: calc(100% - 275px);
+    bottom: 30px;
 }
 
 .admin-section h2 {
