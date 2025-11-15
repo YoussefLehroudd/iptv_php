@@ -23,6 +23,13 @@ function initSliders() {
   const findVideoToggle = (videoEl) =>
     videoEl?.closest('.video-frame')?.querySelector('[data-video-toggle]');
 
+  const disableMediaDrag = (root) => {
+    root.querySelectorAll('img, video').forEach((media) => {
+      media.setAttribute('draggable', 'false');
+      media.addEventListener('dragstart', (event) => event.preventDefault());
+    });
+  };
+
   const updateToggleState = (button, video) => {
     if (!button || !video) return;
     const isUnmuted = !video.muted;
@@ -205,6 +212,7 @@ function initSliders() {
     const track = slider.querySelector('.slider-track') || slider;
     const slides = Array.from(track.querySelectorAll('.slide'));
     if (!slides.length) return;
+    slides.forEach(disableMediaDrag);
     const id = slider.dataset.slider || `slider-${index}`;
     const visibleBase = parseInt(slider.dataset.visible || '1', 10);
     const mode = visibleBase > 1 ? 'multi' : 'single';
@@ -235,6 +243,58 @@ function initSliders() {
       queueNext(id);
     }
   });
+
+  const attachDragHandlers = (id) => {
+    const state = sliderStates[id];
+    if (!state) return;
+    const target = state.track;
+    if (!target) return;
+    target.style.touchAction = 'pan-y';
+    let pointerId = null;
+    let startX = 0;
+    let isDragging = false;
+    const threshold = 45;
+
+    const onPointerDown = (event) => {
+      pointerId = event.pointerId;
+      startX = event.clientX;
+      isDragging = true;
+      target.setPointerCapture?.(pointerId);
+    };
+
+    const onPointerUp = (event) => {
+      if (!isDragging || event.pointerId !== pointerId) return;
+      isDragging = false;
+      target.releasePointerCapture?.(pointerId);
+      const delta = event.clientX - startX;
+      pointerId = null;
+      if (Math.abs(delta) >= threshold) {
+        changeSlide(id, delta > 0 ? -1 : 1);
+      }
+    };
+
+    const cancelDrag = (event) => {
+      if (pointerId !== null && event.pointerId && event.pointerId !== pointerId) return;
+      isDragging = false;
+      if (pointerId !== null) {
+        target.releasePointerCapture?.(pointerId);
+        pointerId = null;
+      }
+    };
+
+    const onPointerMove = (event) => {
+      if (!isDragging) return;
+      event.preventDefault();
+    };
+
+    target.addEventListener('pointerdown', onPointerDown);
+    target.addEventListener('pointerup', onPointerUp);
+    target.addEventListener('pointerleave', cancelDrag);
+    target.addEventListener('pointercancel', cancelDrag);
+    target.addEventListener('pointermove', onPointerMove, { passive: false });
+  };
+
+  Object.keys(sliderStates).forEach(attachDragHandlers);
 
   document.querySelectorAll('[data-slider-target]').forEach((button) => {
     const id = button.dataset.sliderTarget;
