@@ -262,14 +262,17 @@ function initSliders() {
     });
   });
 
-  window.addEventListener('resize', () => {
+  const handleResize = () => {
     Object.values(sliderStates).forEach((state) => {
-      if (state.mode === 'multi') {
-        state.step = 0;
-        measureMulti(state);
-      }
+      if (state.mode !== 'multi') return;
+      state.step = 0;
+      applyVisibleCount(state);
+      measureMulti(state);
     });
-  });
+  };
+
+  window.addEventListener('resize', handleResize);
+  window.addEventListener('orientationchange', handleResize);
 }
 
 function initAnimations() {

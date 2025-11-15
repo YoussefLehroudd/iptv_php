@@ -7,7 +7,6 @@
     --accent: #f0f0f0;
     --accent-dark: #bdbdbd;
 }
-
 * {
     box-sizing: border-box;
     margin: 0;
@@ -405,10 +404,11 @@ main {
 }
 
 .screen-frame {
-    border: 1px solid rgba(255, 255, 255, 0.2);
+    border: 1px solid rgba(255, 255, 255, 0.08);
     border-radius: 24px;
     padding: 1rem;
-    background: rgba(5, 10, 20, 0.8);
+    background: rgba(12, 12, 14, 0.85);
+    box-shadow: 0 25px 50px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.03);
     position: relative;
 }
 
@@ -966,48 +966,110 @@ footer {
 }
 
 @media (max-width: 720px) {
+    main {
+        width: min(520px, 92vw);
+        gap: 2rem;
+    }
+
+    .media-section,
+    .testimonials {
+        padding-inline: 0;
+    }
+
+    .media-carousel {
+        width: 100%;
+        margin-inline: 0;
+    }
+
+    .slider {
+        border-radius: 0;
+        --slider-gap: 0;
+    }
+
+    .slider[data-visible] .slider-track {
+        gap: 0;
+    }
+
+    .slider[data-visible] .slide {
+        flex: 0 0 100%;
+    }
+
+    .media-section .slide,
+    .testimonials .slide {
+        padding: 0;
+        border-radius: 0;
+        background: transparent;
+    }
+
+    .media-section .slide img,
+    .testimonials .slide img {
+        height: 200px;
+    }
+
+    .slider-nav {
+        justify-content: center;
+        margin-top: 0.5rem;
+    }
+
     .hero {
-        padding: 2rem 1.5rem;
+        padding: 2rem 1.3rem;
+        gap: 1.5rem;
+    }
+
+    .hero-content h1 {
+        font-size: clamp(2.4rem, 8vw, 3.2rem);
+    }
+
+    .hero-content p {
+        font-size: 1rem;
     }
 
     .hero-cta {
         flex-direction: column;
         align-items: stretch;
+        gap: 0.6rem;
     }
 
     .device-icons {
         gap: 0.4rem;
+        justify-content: center;
     }
 
     .slide img,
     .slide video {
-        height: 240px;
+        height: 220px;
+    }
+
+    .hero-stats {
+        grid-template-columns: repeat(2, minmax(140px, 1fr));
+        gap: 0.75rem;
+    }
+
+    .hero-stats div {
+        padding: 0.85rem;
     }
 
     .offers-grid {
-        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        grid-template-columns: 1fr;
+        gap: 1rem;
     }
 
     .features {
         grid-template-columns: 1fr;
+        gap: 0.9rem;
     }
 
-    .media-section .slide,
-    .testimonials .slide {
-        padding: 0.8rem;
-    }
-
-    .testimonials .slide {
-        grid-template-columns: 1fr;
-        text-align: center;
-    }
-
-    .testimonials .slide img {
-        margin: 0 auto 0.75rem;
+    .features article {
+        padding: 1.2rem;
     }
 
     .contact-card {
-        padding: 1.5rem;
+        padding: 1.4rem;
+    }
+
+    .contact-card form {
+        display: grid;
+        gap: 0.7rem;
     }
 
     footer {
@@ -1017,6 +1079,8 @@ footer {
 
     .footer-links {
         flex-wrap: wrap;
+        justify-content: center;
+        text-align: center;
     }
 
     .whatsapp-float {
@@ -1034,10 +1098,28 @@ footer {
         border-radius: 26px;
         padding: 0.9rem 1.25rem;
         z-index: 6;
+        gap: 0.6rem;
+    }
+
+    .device-badges {
+        width: 100%;
+        padding-inline: 0.4rem;
+        justify-content: center;
+        gap: 0.5rem;
+    }
+
+    .device-badges span {
+        flex: 1 1 calc(50% - 0.6rem);
+        text-align: center;
     }
 }
 
 @media (max-width: 540px) {
+    main {
+        width: 94vw;
+        gap: 2rem;
+    }
+
     .hero {
         padding: 1.6rem 1.25rem;
     }
