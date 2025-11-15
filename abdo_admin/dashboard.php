@@ -315,8 +315,8 @@ $editingProvider = $editing['providers'];
                     <input type="hidden" name="action" value="update_theme">
                     <?php foreach ($themes as $slug => $theme): ?>
                         <label class="theme-option">
-                            <input type="radio" name="theme" value="<?= e($slug) ?>" <?= ($settings['active_theme'] ?? 'onyx') === $slug ? 'checked' : '' ?>>
                             <span><?= e($theme['label']) ?></span>
+                            <input type="radio" name="theme" value="<?= e($slug) ?>" <?= ($settings['active_theme'] ?? 'onyx') === $slug ? 'checked' : '' ?>>
                         </label>
                     <?php endforeach; ?>
                     <button class="btn" type="submit">Changer le thème</button>
