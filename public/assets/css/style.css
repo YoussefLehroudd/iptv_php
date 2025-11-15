@@ -724,10 +724,14 @@ main {
 
 .media-section .slide img,
 .testimonials .slide img {
-    height: 260px;
+    height: 320px;
     border-radius: 14px;
     object-fit: cover;
     width: 100%;
+}
+
+.testimonials .slide img {
+    height: 560px;
 }
 
 .testimonials .slide {
@@ -1003,7 +1007,11 @@ footer {
 
     .media-section .slide img,
     .testimonials .slide img {
-        height: 200px;
+        height: 260px;
+    }
+
+    .testimonials .slide img {
+        height: 500px;
     }
 
     .slider-nav {
