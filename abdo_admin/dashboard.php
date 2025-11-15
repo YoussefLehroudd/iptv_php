@@ -10,6 +10,13 @@ requireAdmin();
 $basePath = appBasePath();
 $adminBase = $basePath . '/abdo_admin';
 
+function adminFlashRedirect(string $message, string $section, string $adminBase): void
+{
+    $_SESSION['admin_flash'] = $message;
+    header('Location: ' . $adminBase . '/dashboard.php?section=' . urlencode($section));
+    exit;
+}
+
 $navItems = [
     'content' => ['label' => 'Hero & SEO', 'icon' => '📝'],
     'theme' => ['label' => 'Thème & couleurs', 'icon' => '🎨'],
@@ -31,6 +38,10 @@ if (empty($_SESSION['admin_csrf'])) {
 }
 
 $feedback = [];
+if (!empty($_SESSION['admin_flash'])) {
+    $feedback[] = $_SESSION['admin_flash'];
+    unset($_SESSION['admin_flash']);
+}
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $token = $_POST['csrf_token'] ?? '';
@@ -47,13 +58,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             foreach ($fields as $field) {
                 setSetting($pdo, $field, trim($_POST[$field] ?? ''), true);
             }
-            $feedback[] = 'Contenu mis à jour.';
+            adminFlashRedirect('Contenu mis à jour.', 'content', $adminBase);
             break;
         case 'update_theme':
             $theme = $_POST['theme'] ?? 'onyx';
             if (isset(themeOptions()[$theme])) {
                 setSetting($pdo, 'active_theme', $theme);
-                $feedback[] = 'Thème changé.';
+                adminFlashRedirect('Thème changé.', 'theme', $adminBase);
             }
             break;
         case 'add_slider':
@@ -74,7 +85,41 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     'cta_label' => trim($_POST['cta_label'] ?? ''),
                     'cta_description' => trim($_POST['cta_description'] ?? ''),
                 ]);
-                $feedback[] = 'Slider ajouté.';
+                adminFlashRedirect('Slider ajouté.', 'slider', $adminBase);
+            }
+            break;
+        case 'update_slider':
+            $sliderId = (int) ($_POST['id'] ?? 0);
+            $title = trim($_POST['title'] ?? '');
+            if ($sliderId && $title) {
+                $stmt = $pdo->prepare('SELECT * FROM sliders WHERE id = :id');
+                $stmt->execute(['id' => $sliderId]);
+                if ($slider = $stmt->fetch(PDO::FETCH_ASSOC)) {
+                    $mediaType = $_POST['media_type'] ?? $slider['media_type'];
+                    $mediaUrl = trim($_POST['media_url'] ?? '');
+                    if (!empty($_FILES['media_file']['tmp_name'])) {
+                        $upload = uploadToCloudinary($_FILES['media_file']['tmp_name'], 'iptv_abdo/sliders', $config['cloudinary']);
+                        if ($upload) {
+                            $mediaUrl = $upload;
+                        }
+                    }
+                    if (!$mediaUrl) {
+                        $mediaUrl = $slider['media_url'];
+                    }
+                    if ($mediaUrl) {
+                        $stmt = $pdo->prepare('UPDATE sliders SET title = :title, subtitle = :subtitle, media_url = :media_url, media_type = :media_type, cta_label = :cta_label, cta_description = :cta_description WHERE id = :id');
+                        $stmt->execute([
+                            'title' => $title,
+                            'subtitle' => trim($_POST['subtitle'] ?? ''),
+                            'media_url' => $mediaUrl,
+                            'media_type' => $mediaType === 'video' ? 'video' : 'image',
+                            'cta_label' => trim($_POST['cta_label'] ?? ''),
+                            'cta_description' => trim($_POST['cta_description'] ?? ''),
+                            'id' => $sliderId,
+                        ]);
+                        adminFlashRedirect('Slider mis à jour.', 'slider', $adminBase);
+                    }
+                }
             }
             break;
         case 'add_offer':
@@ -87,7 +132,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 'features' => trim($_POST['features'] ?? ''),
                 'is_featured' => isset($_POST['is_featured']) ? 1 : 0,
             ]);
-            $feedback[] = 'Offre créée.';
+            adminFlashRedirect('Offre créée.', 'offers', $adminBase);
+            break;
+        case 'update_offer':
+            $offerId = (int) ($_POST['id'] ?? 0);
+            if ($offerId) {
+                $stmt = $pdo->prepare('UPDATE offers SET name = :name, price = :price, duration = :duration, description = :description, features = :features, is_featured = :is_featured WHERE id = :id');
+                $stmt->execute([
+                    'name' => trim($_POST['name'] ?? ''),
+                    'price' => (float) ($_POST['price'] ?? 0),
+                    'duration' => trim($_POST['duration'] ?? ''),
+                    'description' => trim($_POST['description'] ?? ''),
+                    'features' => trim($_POST['features'] ?? ''),
+                    'is_featured' => isset($_POST['is_featured']) ? 1 : 0,
+                    'id' => $offerId,
+                ]);
+                adminFlashRedirect('Offre mise à jour.', 'offers', $adminBase);
+            }
             break;
         case 'add_provider':
             $name = trim($_POST['name'] ?? '');
@@ -98,7 +159,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if ($name && $logo) {
                 $stmt = $pdo->prepare('INSERT INTO providers (name, logo_url) VALUES (:name, :logo)');
                 $stmt->execute(['name' => $name, 'logo' => $logo]);
-                $feedback[] = 'Provider ajouté.';
+                adminFlashRedirect('Provider ajouté.', 'providers', $adminBase);
+            }
+            break;
+        case 'update_provider':
+            $providerId = (int) ($_POST['id'] ?? 0);
+            if ($providerId) {
+                $stmt = $pdo->prepare('SELECT * FROM providers WHERE id = :id');
+                $stmt->execute(['id' => $providerId]);
+                if ($provider = $stmt->fetch(PDO::FETCH_ASSOC)) {
+                    $name = trim($_POST['name'] ?? '') ?: $provider['name'];
+                    $logo = trim($_POST['logo_url'] ?? '') ?: $provider['logo_url'];
+                    if (!empty($_FILES['logo_file']['tmp_name'])) {
+                        $uploadedLogo = uploadToCloudinary($_FILES['logo_file']['tmp_name'], 'iptv_abdo/providers', $config['cloudinary']);
+                        if ($uploadedLogo) {
+                            $logo = $uploadedLogo;
+                        }
+                    }
+                    if ($name && $logo) {
+                        $stmt = $pdo->prepare('UPDATE providers SET name = :name, logo_url = :logo WHERE id = :id');
+                        $stmt->execute(['name' => $name, 'logo' => $logo, 'id' => $providerId]);
+                        adminFlashRedirect('Provider mis à jour.', 'providers', $adminBase);
+                    }
+                }
             }
             break;
         case 'add_video':
@@ -109,21 +192,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 'url' => trim($_POST['url'] ?? ''),
                 'thumbnail_url' => trim($_POST['thumbnail_url'] ?? ''),
             ]);
-            $feedback[] = 'Vidéo enregistrée.';
+            adminFlashRedirect('Vidéo enregistrée.', 'video', $adminBase);
             break;
         case 'mark_message':
             markMessageAsRead($pdo, (int) $_POST['message_id']);
-            $feedback[] = 'Message marqué comme lu.';
+            adminFlashRedirect('Message marqué comme lu.', 'messages', $adminBase);
             break;
     }
 }
 
 if (isset($_GET['delete'], $_GET['id'])) {
     deleteRecord($pdo, preg_replace('/[^a-z_]/', '', $_GET['delete']), (int) $_GET['id']);
-    header('Location: ' . $adminBase . '/dashboard.php?section=' . urlencode($currentSection) . '&deleted=1');
-    exit;
+    adminFlashRedirect('Élément supprimé.', $currentSection, $adminBase);
 }
-
 $settings = getSettings($pdo);
 $themeVars = getActiveThemeVars($settings['active_theme'] ?? 'onyx');
 $sliders = fetchAllAssoc($pdo, 'SELECT * FROM sliders ORDER BY created_at DESC');
@@ -133,6 +214,28 @@ $video = getPrimaryVideo($pdo);
 $messages = getContactMessages($pdo);
 $visitStats = getVisitStats($pdo);
 $themes = themeOptions();
+
+$editing = ['sliders' => null, 'offers' => null, 'providers' => null];
+if (isset($_GET['edit'], $_GET['id'])) {
+    $table = preg_replace('/[^a-z_]/', '', $_GET['edit']);
+    $id = (int) $_GET['id'];
+    $collections = [
+        'sliders' => $sliders,
+        'offers' => $offers,
+        'providers' => $providers,
+    ];
+    if (isset($collections[$table])) {
+        foreach ($collections[$table] as $item) {
+            if ((int) ($item['id'] ?? 0) === $id) {
+                $editing[$table] = $item;
+                break;
+            }
+        }
+    }
+}
+$editingSlider = $editing['sliders'];
+$editingOffer = $editing['offers'];
+$editingProvider = $editing['providers'];
 ?>
 <!DOCTYPE html>
 <html lang="fr">
@@ -148,7 +251,6 @@ $themes = themeOptions();
         <p>Contrôle complet du contenu 2025</p>
     </div>
     <div>
-        <a class="btn ghost" href="<?= $basePath ?>/" target="_blank" rel="noopener">Voir le site</a>
         <span><?= e($_SESSION['admin_email']) ?></span>
         <a class="btn ghost" href="<?= $adminBase ?>/logout.php">Déconnexion</a>
     </div>
@@ -172,9 +274,7 @@ $themes = themeOptions();
     </aside>
     <main class="admin-content">
         <?php if (!empty($feedback)): ?>
-            <div class="alert success"><?= e(implode(' · ', $feedback)) ?></div>
-        <?php elseif (isset($_GET['deleted'])): ?>
-            <div class="alert success">Élément supprimé.</div>
+            <div class="alert success" data-auto-dismiss><?= e(implode(' · ', $feedback)) ?></div>
         <?php endif; ?>
 
         <?php if ($currentSection === 'content'): ?>
@@ -225,34 +325,47 @@ $themes = themeOptions();
         <?php elseif ($currentSection === 'slider'): ?>
             <section class="admin-section">
                 <h2>Slider hero</h2>
+                <?php $isEditingSlider = !empty($editingSlider); ?>
                 <form method="POST" action="<?= $adminBase ?>/dashboard.php?section=slider" enctype="multipart/form-data">
                     <input type="hidden" name="csrf_token" value="<?= e($_SESSION['admin_csrf']) ?>">
-                    <input type="hidden" name="action" value="add_slider">
+                    <input type="hidden" name="action" value="<?= $isEditingSlider ? 'update_slider' : 'add_slider' ?>">
+                    <?php if ($isEditingSlider): ?>
+                        <input type="hidden" name="id" value="<?= (int) $editingSlider['id'] ?>">
+                        <p class="form-note">Modification de « <?= e($editingSlider['title']) ?> »</p>
+                    <?php endif; ?>
                     <label>Titre
-                        <input type="text" name="title" required>
+                        <input type="text" name="title" value="<?= e($editingSlider['title'] ?? '') ?>" required>
                     </label>
                     <label>Sous-titre
-                        <input type="text" name="subtitle">
+                        <input type="text" name="subtitle" value="<?= e($editingSlider['subtitle'] ?? '') ?>">
                     </label>
                     <label>Type media
                         <select name="media_type">
-                            <option value="image">Image</option>
-                            <option value="video">Vidéo</option>
+                            <option value="image" <?= (($editingSlider['media_type'] ?? '') === 'image') ? 'selected' : '' ?>>Image</option>
+                            <option value="video" <?= (($editingSlider['media_type'] ?? '') === 'video') ? 'selected' : '' ?>>Vidéo</option>
                         </select>
                     </label>
                     <label>Upload media
                         <input type="file" name="media_file">
                     </label>
                     <label>Ou URL media
-                        <input type="url" name="media_url" placeholder="https://">
+                        <input type="url" name="media_url" placeholder="https://" value="<?= e($editingSlider['media_url'] ?? '') ?>">
+                        <?php if ($isEditingSlider && $editingSlider['media_url']): ?>
+                            <span class="form-note">Media actuel : <?= e($editingSlider['media_url']) ?></span>
+                        <?php endif; ?>
                     </label>
                     <label>CTA label
-                        <input type="text" name="cta_label">
+                        <input type="text" name="cta_label" value="<?= e($editingSlider['cta_label'] ?? '') ?>">
                     </label>
                     <label>CTA description
-                        <input type="text" name="cta_description">
+                        <input type="text" name="cta_description" value="<?= e($editingSlider['cta_description'] ?? '') ?>">
                     </label>
-                    <button class="btn" type="submit">Ajouter</button>
+                    <div class="form-actions">
+                        <button class="btn" type="submit"><?= $isEditingSlider ? 'Mettre à jour' : 'Ajouter' ?></button>
+                        <?php if ($isEditingSlider): ?>
+                            <a class="link-light small" href="<?= $adminBase ?>/dashboard.php?section=slider">Annuler</a>
+                        <?php endif; ?>
+                    </div>
                 </form>
                 <div class="list">
                     <?php foreach ($sliders as $slider): ?>
@@ -261,7 +374,10 @@ $themes = themeOptions();
                                 <strong><?= e($slider['title']) ?></strong>
                                 <small><?= e($slider['media_type']) ?></small>
                             </div>
-                            <a class="link-light" href="<?= $adminBase ?>/dashboard.php?section=slider&delete=sliders&id=<?= (int) $slider['id'] ?>">Supprimer</a>
+                            <div class="row-actions">
+                                <a class="link-light" href="<?= $adminBase ?>/dashboard.php?section=slider&edit=sliders&id=<?= (int) $slider['id'] ?>">Modifier</a>
+                                <a class="link-light" href="<?= $adminBase ?>/dashboard.php?section=slider&delete=sliders&id=<?= (int) $slider['id'] ?>">Supprimer</a>
+                            </div>
                         </article>
                     <?php endforeach; ?>
                 </div>
@@ -271,26 +387,37 @@ $themes = themeOptions();
                 <h2>Offres IPTV</h2>
                 <form method="POST" action="<?= $adminBase ?>/dashboard.php?section=offers">
                     <input type="hidden" name="csrf_token" value="<?= e($_SESSION['admin_csrf']) ?>">
-                    <input type="hidden" name="action" value="add_offer">
+                    <?php $isEditingOffer = !empty($editingOffer); ?>
+                    <input type="hidden" name="action" value="<?= $isEditingOffer ? 'update_offer' : 'add_offer' ?>">
+                    <?php if ($isEditingOffer): ?>
+                        <input type="hidden" name="id" value="<?= (int) $editingOffer['id'] ?>">
+                        <p class="form-note">Modification de l'offre « <?= e($editingOffer['name']) ?> »</p>
+                    <?php endif; ?>
                     <label>Nom offre
-                        <input type="text" name="name" required>
+                        <input type="text" name="name" value="<?= e($editingOffer['name'] ?? '') ?>" required>
                     </label>
                     <label>Prix CAD
-                        <input type="number" step="0.01" name="price" required>
+                        <input type="number" step="0.01" name="price" value="<?= e($editingOffer['price'] ?? '') ?>" required>
                     </label>
                     <label>Durée
-                        <input type="text" name="duration" required>
+                        <input type="text" name="duration" value="<?= e($editingOffer['duration'] ?? '') ?>" required>
                     </label>
                     <label>Description
-                        <textarea name="description" rows="2"></textarea>
+                        <textarea name="description" rows="2"><?= e($editingOffer['description'] ?? '') ?></textarea>
                     </label>
                     <label>Features (1 par ligne)
-                        <textarea name="features" rows="3"></textarea>
+                        <textarea name="features" rows="3"><?= e($editingOffer['features'] ?? '') ?></textarea>
                     </label>
-                    <label>
-                        <input type="checkbox" name="is_featured"> Mettre en avant
+                    <label class="switch">
+                        <span>Mettre en avant</span>
+                        <input type="checkbox" name="is_featured" <?= !empty($editingOffer['is_featured']) ? 'checked' : '' ?>>
                     </label>
-                    <button class="btn" type="submit">Ajouter l'offre</button>
+                    <div class="form-actions">
+                        <button class="btn" type="submit"><?= $isEditingOffer ? 'Mettre à jour' : 'Ajouter l\'offre' ?></button>
+                        <?php if ($isEditingOffer): ?>
+                            <a class="link-light small" href="<?= $adminBase ?>/dashboard.php?section=offers">Annuler</a>
+                        <?php endif; ?>
+                    </div>
                 </form>
                 <div class="list">
                     <?php foreach ($offers as $offer): ?>
@@ -299,7 +426,10 @@ $themes = themeOptions();
                                 <strong><?= e($offer['name']) ?></strong>
                                 <small><?= e(formatCurrency((float) $offer['price'])) ?> CAD</small>
                             </div>
-                            <a class="link-light" href="<?= $adminBase ?>/dashboard.php?section=offers&delete=offers&id=<?= (int) $offer['id'] ?>">Supprimer</a>
+                            <div class="row-actions">
+                                <a class="link-light" href="<?= $adminBase ?>/dashboard.php?section=offers&edit=offers&id=<?= (int) $offer['id'] ?>">Modifier</a>
+                                <a class="link-light" href="<?= $adminBase ?>/dashboard.php?section=offers&delete=offers&id=<?= (int) $offer['id'] ?>">Supprimer</a>
+                            </div>
                         </article>
                     <?php endforeach; ?>
                 </div>
@@ -309,23 +439,39 @@ $themes = themeOptions();
                 <h2>Providers</h2>
                 <form method="POST" action="<?= $adminBase ?>/dashboard.php?section=providers" enctype="multipart/form-data">
                     <input type="hidden" name="csrf_token" value="<?= e($_SESSION['admin_csrf']) ?>">
-                    <input type="hidden" name="action" value="add_provider">
+                    <?php $isEditingProvider = !empty($editingProvider); ?>
+                    <input type="hidden" name="action" value="<?= $isEditingProvider ? 'update_provider' : 'add_provider' ?>">
+                    <?php if ($isEditingProvider): ?>
+                        <input type="hidden" name="id" value="<?= (int) $editingProvider['id'] ?>">
+                        <p class="form-note">Modification du provider « <?= e($editingProvider['name']) ?> »</p>
+                    <?php endif; ?>
                     <label>Nom
-                        <input type="text" name="name" required>
+                        <input type="text" name="name" value="<?= e($editingProvider['name'] ?? '') ?>" required>
                     </label>
                     <label>Logo upload
                         <input type="file" name="logo_file">
                     </label>
                     <label>ou URL
-                        <input type="url" name="logo_url" placeholder="https://">
+                        <input type="url" name="logo_url" placeholder="https://" value="<?= e($editingProvider['logo_url'] ?? '') ?>">
+                        <?php if ($isEditingProvider && $editingProvider['logo_url']): ?>
+                            <span class="form-note">Logo actuel : <?= e($editingProvider['logo_url']) ?></span>
+                        <?php endif; ?>
                     </label>
-                    <button class="btn" type="submit">Ajouter</button>
+                    <div class="form-actions">
+                        <button class="btn" type="submit"><?= $isEditingProvider ? 'Mettre à jour' : 'Ajouter' ?></button>
+                        <?php if ($isEditingProvider): ?>
+                            <a class="link-light small" href="<?= $adminBase ?>/dashboard.php?section=providers">Annuler</a>
+                        <?php endif; ?>
+                    </div>
                 </form>
                 <div class="list">
                     <?php foreach ($providers as $provider): ?>
                         <article>
                             <strong><?= e($provider['name']) ?></strong>
-                            <a class="link-light" href="<?= $adminBase ?>/dashboard.php?section=providers&delete=providers&id=<?= (int) $provider['id'] ?>">Supprimer</a>
+                            <div class="row-actions">
+                                <a class="link-light" href="<?= $adminBase ?>/dashboard.php?section=providers&edit=providers&id=<?= (int) $provider['id'] ?>">Modifier</a>
+                                <a class="link-light" href="<?= $adminBase ?>/dashboard.php?section=providers&delete=providers&id=<?= (int) $provider['id'] ?>">Supprimer</a>
+                            </div>
                         </article>
                     <?php endforeach; ?>
                 </div>
@@ -391,5 +537,19 @@ $themes = themeOptions();
         <?php endif; ?>
     </main>
 </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    const alerts = document.querySelectorAll('[data-auto-dismiss]');
+    if (alerts.length) {
+        setTimeout(() => {
+            alerts.forEach((alert) => {
+                alert.classList.add('fade-out');
+                setTimeout(() => alert.remove(), 500);
+            });
+        }, 3500);
+    }
+});
+</script>
 </body>
 </html>

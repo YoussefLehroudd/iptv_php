@@ -6,6 +6,7 @@ document.addEventListener('DOMContentLoaded', () => {
   initOfferModal();
   initFaq();
   initMobileMenu();
+  initProviderCarousel();
 });
 
 function initSliders() {
@@ -285,4 +286,103 @@ function initMobileMenu() {
   }
 
   applyState();
+}
+
+function initProviderCarousel() {
+  const carousel = document.querySelector('[data-provider-carousel]');
+  if (!carousel) return;
+  const track = carousel.querySelector('[data-provider-track]');
+  const navButtons = carousel.querySelectorAll('[data-provider-nav]');
+  if (!track) return;
+  const items = Array.from(track.children);
+  const originalCount = items.length;
+  const getVisibleCount = () => {
+    const width = window.innerWidth;
+    if (width < 560) return 1;
+    if (width < 960) return Math.min(2, originalCount);
+    return Math.min(3, originalCount);
+  };
+  if (originalCount <= getVisibleCount()) {
+    carousel.classList.add('provider-carousel--static');
+    return;
+  }
+  items.forEach((item) => track.appendChild(item.cloneNode(true)));
+  let index = 0;
+  let itemWidth = 0;
+  let timer;
+  let isSliding = false;
+  let fallbackId;
+
+  const computeWidth = () => {
+    const first = track.querySelector('.provider-logo');
+    if (!first) return 0;
+    const trackStyle = window.getComputedStyle(track);
+    const gap = parseFloat(trackStyle.columnGap || trackStyle.gap || '0');
+    return first.getBoundingClientRect().width + gap;
+  };
+
+  const applyTransform = (instant = false) => {
+    if (!itemWidth) itemWidth = computeWidth();
+    const value = `translate3d(${-index * itemWidth}px, 0, 0)`;
+    if (instant) {
+      track.style.transition = 'none';
+      track.style.transform = value;
+      // force reflow before restoring transition
+      track.getBoundingClientRect();
+      track.style.transition = '';
+    } else {
+      track.style.transform = value;
+    }
+  };
+
+  const normalizeIndex = () => {
+    if (index >= originalCount) {
+      index -= originalCount;
+      applyTransform(true);
+    } else if (index < 0) {
+      index += originalCount;
+      applyTransform(true);
+    }
+    isSliding = false;
+    schedule();
+  };
+
+  const handleTransitionEnd = () => {
+    track.removeEventListener('transitionend', handleTransitionEnd);
+    clearTimeout(fallbackId);
+    normalizeIndex();
+  };
+
+  const slide = (step) => {
+    if (isSliding) return;
+    isSliding = true;
+    clearTimeout(timer);
+    itemWidth = computeWidth();
+    index += step;
+    track.addEventListener('transitionend', handleTransitionEnd);
+    clearTimeout(fallbackId);
+    fallbackId = setTimeout(handleTransitionEnd, 800);
+    applyTransform();
+  };
+
+  const schedule = () => {
+    clearTimeout(timer);
+    timer = setTimeout(() => {
+      slide(getVisibleCount());
+    }, 4500);
+  };
+
+  navButtons.forEach((button) => {
+    const direction = button.dataset.providerNav === 'prev' ? -1 : 1;
+    button.addEventListener('click', () => slide(direction));
+  });
+
+  window.addEventListener('resize', () => {
+    itemWidth = computeWidth();
+    applyTransform(true);
+  });
+
+  itemWidth = computeWidth();
+  applyTransform(true);
+  schedule();
 }

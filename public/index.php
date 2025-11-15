@@ -26,6 +26,7 @@ $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' :
 $host = $_SERVER['HTTP_HOST'] ?? 'localhost';
 $baseUrl = $scheme . '://' . $host;
 $basePath = appBasePath();
+$mediaBase = $basePath . '/assets/images/demo';
 
 $seoTitle = $settings['seo_title'] ?? 'ABDO IPTV Canada | Premium IPTV Accounts 2025';
 $seoDescription = $settings['seo_description'] ?? 'Serveurs IPTV ultra rapides pour Canada, paiement WhatsApp sécurisé et support 24/7.';
@@ -49,19 +50,19 @@ $structuredData = [
 ];
 
 $moviePosters = [
-    ['title' => 'Kung Fu Panda 4', 'image' => 'https://res.cloudinary.com/demo/image/upload/v1700001001/iptv/kfp4.webp'],
-    ['title' => 'The Beekeeper', 'image' => 'https://res.cloudinary.com/demo/image/upload/v1700001002/iptv/beekeeper.webp'],
-    ['title' => 'Kingdom of the Planet of the Apes', 'image' => 'https://res.cloudinary.com/demo/image/upload/v1700001003/iptv/apes.webp'],
-    ['title' => 'Furiosa', 'image' => 'https://res.cloudinary.com/demo/image/upload/v1700001004/iptv/furiosa.webp'],
-    ['title' => 'The Queen\'s Gambit', 'image' => 'https://res.cloudinary.com/demo/image/upload/v1700001005/iptv/queens.webp'],
+    ['title' => 'Kung Fu Panda 4', 'image' => $mediaBase . '/kfp4.webp'],
+    ['title' => 'The Beekeeper', 'image' => $mediaBase . '/beekeeper.webp'],
+    ['title' => 'Kingdom of the Planet of the Apes', 'image' => $mediaBase . '/apes.webp'],
+    ['title' => 'Furiosa', 'image' => $mediaBase . '/furiosa.webp'],
+    ['title' => 'The Queen\'s Gambit', 'image' => $mediaBase . '/queens.webp'],
 ];
 
 $sportEvents = [
-    ['title' => 'Formula 1', 'image' => 'https://res.cloudinary.com/demo/image/upload/v1700001010/iptv/f1.webp'],
-    ['title' => 'LaLiga', 'image' => 'https://res.cloudinary.com/demo/image/upload/v1700001011/iptv/laliga.webp'],
-    ['title' => 'NBA Playoffs', 'image' => 'https://res.cloudinary.com/demo/image/upload/v1700001012/iptv/nba.webp'],
-    ['title' => 'Bundesliga', 'image' => 'https://res.cloudinary.com/demo/image/upload/v1700001013/iptv/bundesliga.webp'],
-    ['title' => 'Euro 2024', 'image' => 'https://res.cloudinary.com/demo/image/upload/v1700001014/iptv/euro.webp'],
+    ['title' => 'Formula 1', 'image' => $mediaBase . '/f1.webp'],
+    ['title' => 'LaLiga', 'image' => $mediaBase . '/laliga.webp'],
+    ['title' => 'NBA Playoffs', 'image' => $mediaBase . '/nba.webp'],
+    ['title' => 'Bundesliga', 'image' => $mediaBase . '/bundesliga.webp'],
+    ['title' => 'Euro 2024', 'image' => $mediaBase . '/euro.webp'],
 ];
 
 $deviceBadges = [
@@ -86,9 +87,9 @@ $faqs = [
 ];
 
 $testimonials = [
-    ['name' => 'Omar – Montréal', 'message' => 'Service rapide, zéro freeze pendant les matchs de NHL. Merci !', 'capture' => 'https://res.cloudinary.com/demo/image/upload/v1700001020/iptv/wa-1.webp'],
-    ['name' => 'Nadia – Ottawa', 'message' => 'Support WhatsApp toujours présent, j’ai renouvelé pour 12 mois direct.', 'capture' => 'https://res.cloudinary.com/demo/image/upload/v1700001021/iptv/wa-2.webp'],
-    ['name' => 'Youssef – Québec', 'message' => 'Les VOD sont mis à jour tous les jours. Netflix, Apple TV+, tout y est.', 'capture' => 'https://res.cloudinary.com/demo/image/upload/v1700001022/iptv/wa-3.webp'],
+    ['name' => 'Omar - Montr�al', 'message' => 'Service rapide, z�ro freeze pendant les matchs de NHL. Merci !', 'capture' => $mediaBase . '/wa-1.webp'],
+    ['name' => 'Nadia - Ottawa', 'message' => 'Support WhatsApp toujours pr�sent, j\'ai renouvel� pour 12 mois direct.', 'capture' => $mediaBase . '/wa-2.webp'],
+    ['name' => 'Youssef - Qu�bec', 'message' => 'Les VOD sont mis � jour tous les jours. Netflix, Apple TV+, tout y est.', 'capture' => $mediaBase . '/wa-3.webp'],
 ];
 ?>
 <!DOCTYPE html>
@@ -227,12 +228,18 @@ $testimonials = [
         </section>
 
         <section class="logo-strip" data-animate>
-            <div class="logo-track">
-                <?php foreach ($providers as $provider): ?>
-                    <div class="logo-item">
-                        <img src="<?= e($provider['logo_url']) ?>" alt="<?= e($provider['name']) ?>">
+            <div class="provider-carousel" data-provider-carousel>
+                <button class="provider-nav prev" type="button" aria-label="Précédent" data-provider-nav="prev">‹</button>
+                <div class="provider-window">
+                    <div class="provider-track" data-provider-track>
+                        <?php foreach ($providers as $provider): ?>
+                            <div class="provider-logo">
+                                <img src="<?= e($provider['logo_url']) ?>" alt="<?= e($provider['name']) ?>">
+                            </div>
+                        <?php endforeach; ?>
                     </div>
-                <?php endforeach; ?>
+                </div>
+                <button class="provider-nav next" type="button" aria-label="Suivant" data-provider-nav="next">›</button>
             </div>
         </section>
 
@@ -393,17 +400,7 @@ $testimonials = [
                         <button type="submit" class="btn primary">Envoyer</button>
                     </form>
                 </div>
-                <div class="analytics">
-                    <h3>Top pays visiteurs</h3>
-                    <ul>
-                        <?php foreach ($visitStats['countries'] as $country): ?>
-                            <li>
-                                <span><?= e($country['country'] ?: 'Inconnu') ?></span>
-                                <span><?= e($country['total']) ?></span>
-                            </li>
-                        <?php endforeach; ?>
-                    </ul>
-                </div>
+
             </div>
         </section>
     </main>
@@ -440,3 +437,5 @@ $testimonials = [
     <script src="<?= $basePath ?>/assets/js/main.js?v=<?= time() ?>" defer></script>
 </body>
 </html>
+
+
