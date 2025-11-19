@@ -2,6 +2,22 @@
 
 declare(strict_types=1);
 
+function ensureColumnExists(PDO $pdo, string $table, string $column, string $definition): void
+{
+    $tableSafe = preg_replace('/[^A-Za-z0-9_]/', '', $table);
+    $columnSafe = preg_replace('/[^A-Za-z0-9_]/', '', $column);
+
+    if ($tableSafe === '' || $columnSafe === '') {
+        return;
+    }
+
+    $stmt = $pdo->prepare(sprintf('SHOW COLUMNS FROM `%s` LIKE :column', $tableSafe));
+    $stmt->execute(['column' => $columnSafe]);
+    if ($stmt->fetch(PDO::FETCH_ASSOC) === false) {
+        $pdo->exec(sprintf('ALTER TABLE `%s` ADD COLUMN `%s` %s', $tableSafe, $columnSafe, $definition));
+    }
+}
+
 function initializeDatabase(PDO $pdo, array $config): void
 {
     $pdo->exec(<<<SQL
@@ -113,10 +129,30 @@ function initializeDatabase(PDO $pdo, array $config): void
             id INT AUTO_INCREMENT PRIMARY KEY,
             ip_address VARCHAR(80) NULL,
             country VARCHAR(120) NULL,
+            region VARCHAR(120) NULL,
+            city VARCHAR(120) NULL,
             user_agent TEXT NULL,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
     SQL);
+
+    ensureColumnExists($pdo, 'visits', 'region', 'VARCHAR(120) NULL');
+    ensureColumnExists($pdo, 'visits', 'city', 'VARCHAR(120) NULL');
+
+    $pdo->exec(<<<SQL
+        CREATE TABLE IF NOT EXISTS songs (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            title VARCHAR(160) NOT NULL,
+            artist VARCHAR(160) NULL,
+            source_type ENUM('audio','youtube') DEFAULT 'audio',
+            source_url TEXT NOT NULL,
+            thumbnail_url TEXT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    SQL);
+
+    setSetting($pdo, 'song_default_volume', '40', false);
+    setSetting($pdo, 'song_default_muted', '1', false);
 
     // Ensure default admin
     $adminEmail = $config['admin']['email'] ?? 'admin@iptvabdo.com';
@@ -518,29 +554,67 @@ function logVisit(PDO $pdo): void
         ?? $_SERVER['REMOTE_ADDR']
         ?? '0.0.0.0';
     $ip = explode(',', $ip)[0];
-    $country = resolveCountry($ip);
+    $location = resolveLocation($ip);
     $userAgent = $_SERVER['HTTP_USER_AGENT'] ?? 'unknown';
 
-    $stmt = $pdo->prepare('INSERT INTO visits (ip_address, country, user_agent) VALUES (:ip, :country, :agent)');
+    $stmt = $pdo->prepare('INSERT INTO visits (ip_address, country, region, city, user_agent) VALUES (:ip, :country, :region, :city, :agent)');
     $stmt->execute([
         'ip' => $ip,
-        'country' => $country,
+        'country' => $location['country'],
+        'region' => $location['region'],
+        'city' => $location['city'],
         'agent' => $userAgent,
     ]);
 }
 
-function resolveCountry(string $ip): string
+function resolveLocation(string $ip): array
 {
+    $defaults = [
+        'country' => 'Unknown',
+        'region' => 'Unknown',
+        'city' => 'Unknown',
+    ];
+
     if (filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE) === false) {
-        return 'Local';
+        return [
+            'country' => 'Local',
+            'region' => 'Local',
+            'city' => 'Local',
+        ];
     }
 
-    $endpoint = "https://ipapi.co/{$ip}/country_name/";
-    $context = stream_context_create(['http' => ['timeout' => 2]]);
-    $country = @file_get_contents($endpoint, false, $context);
-    $country = trim((string) $country);
+    $endpoint = "https://ipapi.co/{$ip}/json/";
+    $context = stream_context_create([
+        'http' => [
+            'timeout' => 3,
+            'header' => "Accept: application/json\r\nUser-Agent: ABDO-IPTV-Analytics\r\n",
+        ],
+    ]);
+    $response = @file_get_contents($endpoint, false, $context);
+    if ($response === false) {
+        return $defaults;
+    }
 
-    return $country !== '' ? $country : 'Unknown';
+    $decoded = json_decode($response, true);
+    if (!is_array($decoded)) {
+        return $defaults;
+    }
+
+    $country = trim((string) ($decoded['country_name'] ?? $decoded['country'] ?? ''));
+    $region = trim((string) ($decoded['region'] ?? $decoded['region_code'] ?? ''));
+    $city = trim((string) ($decoded['city'] ?? ''));
+
+    return [
+        'country' => $country !== '' ? $country : $defaults['country'],
+        'region' => $region !== '' ? $region : $defaults['region'],
+        'city' => $city !== '' ? $city : $defaults['city'],
+    ];
+}
+
+function resolveCountry(string $ip): string
+{
+    $location = resolveLocation($ip);
+    return $location['country'];
 }
 
 function getVisitStats(PDO $pdo): array
@@ -548,10 +622,16 @@ function getVisitStats(PDO $pdo): array
     $total = (int) $pdo->query('SELECT COUNT(*) FROM visits')->fetchColumn();
     $byCountryStmt = $pdo->query('SELECT country, COUNT(*) as total FROM visits GROUP BY country ORDER BY total DESC LIMIT 10');
     $byCountry = $byCountryStmt->fetchAll(PDO::FETCH_ASSOC);
+    $byRegionStmt = $pdo->query('SELECT country, region, COUNT(*) as total FROM visits GROUP BY country, region ORDER BY total DESC LIMIT 10');
+    $byRegion = $byRegionStmt->fetchAll(PDO::FETCH_ASSOC);
+    $recentStmt = $pdo->query('SELECT ip_address, country, region, city, created_at FROM visits ORDER BY created_at DESC LIMIT 15');
+    $recent = $recentStmt->fetchAll(PDO::FETCH_ASSOC);
 
     return [
         'total' => $total,
         'countries' => $byCountry,
+        'regions' => $byRegion,
+        'recent' => $recent,
     ];
 }
 
@@ -630,6 +710,21 @@ function markMessageAsRead(PDO $pdo, int $id): void
     $stmt->execute(['id' => $id]);
 }
 
+function deleteContactMessage(PDO $pdo, int $id): void
+{
+    if ($id <= 0) {
+        return;
+    }
+    $stmt = $pdo->prepare('DELETE FROM contact_messages WHERE id = :id');
+    $stmt->execute(['id' => $id]);
+}
+
+function getSongs(PDO $pdo): array
+{
+    $stmt = $pdo->query('SELECT * FROM songs ORDER BY created_at DESC');
+    return $stmt->fetchAll(PDO::FETCH_ASSOC);
+}
+
 function deleteRecord(PDO $pdo, string $table, int $id): void
 {
     $allowed = ['offers', 'sliders', 'providers', 'videos', 'movie_posters', 'sport_events', 'testimonials'];
@@ -638,4 +733,19 @@ function deleteRecord(PDO $pdo, string $table, int $id): void
     }
     $stmt = $pdo->prepare("DELETE FROM {$table} WHERE id = :id");
     $stmt->execute(['id' => $id]);
+}
+
+function extractYoutubeId(string $url): ?string
+{
+    $patterns = [
+        '#youtu\.be/([A-Za-z0-9_-]{6,})#i',
+        '#youtube\.com/watch\?v=([A-Za-z0-9_-]{6,})#i',
+        '#youtube\.com/embed/([A-Za-z0-9_-]{6,})#i',
+    ];
+    foreach ($patterns as $pattern) {
+        if (preg_match($pattern, $url, $matches)) {
+            return $matches[1];
+        }
+    }
+    return null;
 }
