@@ -10,6 +10,15 @@ requireAdmin();
 $basePath = appBasePath();
 $adminBase = $basePath . '/abdo_admin';
 
+$posterCategories = fetchAllAssoc($pdo, 'SELECT * FROM poster_categories ORDER BY label ASC');
+$posterCategoriesBySlug = [];
+$posterCategoriesById = [];
+foreach ($posterCategories as $category) {
+    $posterCategoriesBySlug[$category['slug']] = $category;
+    $posterCategoriesById[(int) $category['id']] = $category;
+}
+$defaultPosterCategory = $posterCategories[0] ?? null;
+
 function adminFlashRedirect(string $message, string $section, string $adminBase): void
 {
     $_SESSION['admin_flash'] = $message;
@@ -17,7 +26,7 @@ function adminFlashRedirect(string $message, string $section, string $adminBase)
     exit;
 }
 
-function adminNavIcon(string $name): string
+function adminNavIcons(): array
 {
     static $icons = [
         'content' => '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16c0 1.1.9 2 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="9" y1="13" x2="15" y2="13"></line><line x1="9" y1="17" x2="15" y2="17"></line></svg>',
@@ -34,14 +43,84 @@ function adminNavIcon(string $name): string
         'songs' => '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18V5l12-2v13"></path><circle cx="6" cy="18" r="3"></circle><circle cx="18" cy="16" r="3"></circle></svg>',
     ];
 
+    return $icons;
+}
+
+function adminNavIcon(string $name): string
+{
+    $name = trim($name);
+    if ($name === '') {
+        $name = 'content';
+    }
+    if (str_starts_with($name, '<')) {
+        return $name;
+    }
+    if (preg_match('#^https?://#i', $name)) {
+        $safe = htmlspecialchars($name, ENT_QUOTES, 'UTF-8');
+        return '<img src="' . $safe . '" alt="">';
+    }
+    $icons = adminNavIcons();
     return $icons[$name] ?? $icons['content'];
+}
+
+function adminIconChoices(): array
+{
+    static $choices;
+    if ($choices === null) {
+        $choices = array_keys(adminNavIcons());
+    }
+    return $choices;
+}
+
+function adminSlugify(string $value): string
+{
+    $value = strtolower(trim($value));
+    $value = preg_replace('/[^a-z0-9]+/i', '-', $value);
+    $value = trim((string) $value, '-');
+    if ($value === '') {
+        $value = 'cat-' . bin2hex(random_bytes(3));
+    }
+    return $value;
+}
+
+function adminEnsureUniqueSlug(PDO $pdo, string $baseSlug): string
+{
+    $slug = $baseSlug;
+    $stmt = $pdo->prepare('SELECT COUNT(*) FROM poster_categories WHERE slug = :slug');
+    $counter = 2;
+    while (true) {
+        $stmt->execute(['slug' => $slug]);
+        if ((int) $stmt->fetchColumn() === 0) {
+            return $slug;
+        }
+        $slug = $baseSlug . '-' . $counter;
+        $counter++;
+    }
 }
 
 $navItems = [
     'content' => ['label' => 'Hero & SEO', 'icon' => adminNavIcon('content')],
     'theme' => ['label' => 'Theme & couleurs', 'icon' => adminNavIcon('theme')],
     'slider' => ['label' => 'Slider hero', 'icon' => adminNavIcon('slider')],
-    'movies' => ['label' => 'Movies posters', 'icon' => adminNavIcon('movies')],
+    'poster_categories' => ['label' => 'Poster categories', 'icon' => adminNavIcon('content')],
+];
+if (isset($posterCategoriesBySlug['sports-events'])) {
+    $sportsCategory = $posterCategoriesBySlug['sports-events'];
+    $navItems['sports'] = [
+        'label' => $sportsCategory['label'],
+        'icon' => adminNavIcon($sportsCategory['icon_key'] ?? 'sports'),
+    ];
+}
+foreach ($posterCategories as $category) {
+    if (($category['slug'] ?? '') === 'sports-events') {
+        continue;
+    }
+    $navItems['poster_' . $category['slug']] = [
+        'label' => $category['label'],
+        'icon' => adminNavIcon($category['icon_key'] ?? 'movies'),
+    ];
+}
+$navItems += [
     'sports' => ['label' => 'Sports events', 'icon' => adminNavIcon('sports')],
     'testimonials' => ['label' => 'Temoignages', 'icon' => adminNavIcon('testimonials')],
     'offers' => ['label' => 'Offres IPTV', 'icon' => adminNavIcon('offers')],
@@ -55,6 +134,23 @@ $navItems = [
 $currentSection = $_GET['section'] ?? 'content';
 if (!array_key_exists($currentSection, $navItems)) {
     $currentSection = 'content';
+}
+$currentPosterCategory = null;
+$editingPosterCategory = null;
+if ($currentSection !== 'poster_categories' && str_starts_with($currentSection, 'poster_')) {
+    $slug = substr($currentSection, 7);
+    if (isset($posterCategoriesBySlug[$slug])) {
+        $currentPosterCategory = $posterCategoriesBySlug[$slug];
+    } elseif ($defaultPosterCategory) {
+        $currentPosterCategory = $defaultPosterCategory;
+        $currentSection = 'poster_' . $defaultPosterCategory['slug'];
+    }
+}
+if ($currentSection === 'poster_categories' && isset($_GET['edit_category'])) {
+    $editId = (int) $_GET['edit_category'];
+    if (isset($posterCategoriesById[$editId])) {
+        $editingPosterCategory = $posterCategoriesById[$editId];
+    }
 }
 
 if (empty($_SESSION['admin_csrf'])) {
@@ -182,9 +278,89 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
             }
             break;
+        case 'add_poster_category':
+            $label = trim($_POST['category_label'] ?? '');
+            $iconKey = trim($_POST['icon_key'] ?? '');
+            $headline = trim($_POST['headline'] ?? '');
+            if ($iconKey === '') {
+                $iconKey = 'movies';
+            }
+            if ($headline === '') {
+                $headline = 'Latest blockbuster posters';
+            }
+            if ($label !== '') {
+                $baseSlug = adminSlugify($label);
+                $slug = adminEnsureUniqueSlug($pdo, $baseSlug);
+                $stmt = $pdo->prepare('INSERT INTO poster_categories (label, slug, icon_key, headline) VALUES (:label, :slug, :icon_key, :headline)');
+                $stmt->execute([
+                    'label' => $label,
+                    'slug' => $slug,
+                    'icon_key' => $iconKey,
+                    'headline' => $headline,
+                ]);
+                $redirectSection = $slug === 'sports-events' ? 'sports' : 'poster_' . $slug;
+                adminFlashRedirect('Catégorie créée.', $redirectSection, $adminBase);
+            }
+            break;
+        case 'update_poster_category':
+            $categoryId = (int) ($_POST['id'] ?? 0);
+            if ($categoryId && isset($posterCategoriesById[$categoryId])) {
+                $label = trim($_POST['category_label'] ?? '');
+                $iconKey = trim($_POST['icon_key'] ?? '');
+                $headline = trim($_POST['headline'] ?? '');
+                if ($iconKey === '') {
+                    $iconKey = 'movies';
+                }
+                if ($label !== '') {
+                    if ($headline === '') {
+                        $headline = 'Latest blockbuster posters';
+                    }
+                    $stmt = $pdo->prepare('UPDATE poster_categories SET label = :label, icon_key = :icon, headline = :headline WHERE id = :id');
+                    $stmt->execute([
+                        'label' => $label,
+                        'icon' => $iconKey,
+                        'headline' => $headline,
+                        'id' => $categoryId,
+                    ]);
+                    $posterCategoriesById[$categoryId]['headline'] = $headline;
+                    $slug = $posterCategoriesById[$categoryId]['slug'];
+                    $redirectSection = $slug === 'sports-events' ? 'sports' : 'poster_' . $slug;
+                    adminFlashRedirect('Catégorie mise à jour.', $redirectSection, $adminBase);
+                }
+            }
+            adminFlashRedirect('Catégorie introuvable.', 'poster_categories', $adminBase);
+            break;
+        case 'delete_poster_category':
+            $categoryId = (int) ($_POST['category_id'] ?? 0);
+            if ($categoryId && isset($posterCategoriesById[$categoryId]) && count($posterCategoriesById) > 1) {
+                $fallback = null;
+                foreach ($posterCategories as $category) {
+                    if ((int) $category['id'] !== $categoryId) {
+                        $fallback = $category;
+                        break;
+                    }
+                }
+                if ($fallback) {
+                    $pdo->prepare('UPDATE movie_posters SET category_id = :new_id, category_label = :label WHERE category_id = :old_id')
+                        ->execute([
+                            'new_id' => $fallback['id'],
+                            'label' => $fallback['label'],
+                            'old_id' => $categoryId,
+                        ]);
+                    $pdo->prepare('DELETE FROM poster_categories WHERE id = :id LIMIT 1')->execute(['id' => $categoryId]);
+                    adminFlashRedirect('Catégorie supprimée.', 'poster_' . $fallback['slug'], $adminBase);
+                }
+            }
+            adminFlashRedirect('Suppression impossible (besoin d\'au moins 1 catégorie).', 'poster_categories', $adminBase);
+            break;
         case 'add_movie_poster':
             $title = trim($_POST['title'] ?? '');
             $imageUrl = trim($_POST['image_url'] ?? '');
+            $categoryId = (int) ($_POST['category_id'] ?? 0);
+            $category = $posterCategoriesById[$categoryId] ?? $defaultPosterCategory;
+            if (!$category) {
+                adminFlashRedirect('Créez une catégorie d\'abord.', 'poster_categories', $adminBase);
+            }
             if (!empty($_FILES['image_file']['tmp_name'])) {
                 $upload = uploadToCloudinary($_FILES['image_file']['tmp_name'], 'iptv_abdo/movies', $config['cloudinary']);
                 if ($upload) {
@@ -192,9 +368,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
             }
             if ($title && $imageUrl) {
-                $stmt = $pdo->prepare('INSERT INTO movie_posters (title, image_url) VALUES (:title, :image)');
-                $stmt->execute(['title' => $title, 'image' => $imageUrl]);
-                adminFlashRedirect('Affiche ajouté.', 'movies', $adminBase);
+                $stmt = $pdo->prepare('INSERT INTO movie_posters (title, image_url, category_label, category_id) VALUES (:title, :image, :category_label, :category_id)');
+                $stmt->execute([
+                    'title' => $title,
+                    'image' => $imageUrl,
+                    'category_label' => $category['label'],
+                    'category_id' => $category['id'],
+                ]);
+                $redirectSection = ($category['slug'] ?? '') === 'sports-events' ? 'sports' : 'poster_' . $category['slug'];
+                adminFlashRedirect('Affiche ajoutée.', $redirectSection, $adminBase);
             }
             break;
         case 'update_movie_poster':
@@ -205,15 +387,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 if ($poster = $stmt->fetch(PDO::FETCH_ASSOC)) {
                     $title = trim($_POST['title'] ?? '') ?: $poster['title'];
                     $imageUrl = trim($_POST['image_url'] ?? '') ?: $poster['image_url'];
+                    $categoryId = (int) ($_POST['category_id'] ?? ($poster['category_id'] ?? 0));
+                    $category = $posterCategoriesById[$categoryId] ?? $defaultPosterCategory;
                     if (!empty($_FILES['image_file']['tmp_name'])) {
                         $upload = uploadToCloudinary($_FILES['image_file']['tmp_name'], 'iptv_abdo/movies', $config['cloudinary']);
                         if ($upload) {
                             $imageUrl = $upload;
                         }
                     }
-                    $stmt = $pdo->prepare('UPDATE movie_posters SET title = :title, image_url = :image WHERE id = :id');
-                    $stmt->execute(['title' => $title, 'image' => $imageUrl, 'id' => $posterId]);
-                    adminFlashRedirect('Affiche mise à jour.', 'movies', $adminBase);
+                    if (!$category) {
+                        $category = $defaultPosterCategory;
+                    }
+                    $stmt = $pdo->prepare('UPDATE movie_posters SET title = :title, image_url = :image, category_label = :category_label, category_id = :category_id WHERE id = :id');
+                    $stmt->execute([
+                        'title' => $title,
+                        'image' => $imageUrl,
+                        'category_label' => $category['label'],
+                        'category_id' => $category['id'],
+                        'id' => $posterId,
+                    ]);
+                    $redirectSection = ($category['slug'] ?? '') === 'sports-events' ? 'sports' : 'poster_' . $category['slug'];
+                    adminFlashRedirect('Affiche mise à jour.', $redirectSection, $adminBase);
                 }
             }
             break;
@@ -508,7 +702,19 @@ $themeVars = getActiveThemeVars($settings['active_theme'] ?? 'onyx');
 $sliders = fetchAllAssoc($pdo, 'SELECT * FROM sliders ORDER BY created_at DESC');
 $offers = fetchAllAssoc($pdo, 'SELECT * FROM offers ORDER BY created_at DESC');
 $providers = fetchAllAssoc($pdo, 'SELECT * FROM providers ORDER BY created_at DESC');
-$moviePosters = fetchAllAssoc($pdo, 'SELECT * FROM movie_posters ORDER BY created_at DESC');
+$moviePosters = fetchAllAssoc($pdo, 'SELECT mp.*, pc.slug AS category_slug, pc.label AS category_label_display FROM movie_posters mp LEFT JOIN poster_categories pc ON pc.id = mp.category_id ORDER BY mp.created_at DESC');
+$moviePostersByCategory = [];
+foreach ($moviePosters as $posterRow) {
+    $posterCategoryId = (int) ($posterRow['category_id'] ?? 0);
+    if (!isset($moviePostersByCategory[$posterCategoryId])) {
+        $moviePostersByCategory[$posterCategoryId] = [];
+    }
+    $moviePostersByCategory[$posterCategoryId][] = $posterRow;
+}
+$activeMoviePosterList = [];
+if ($currentPosterCategory) {
+    $activeMoviePosterList = $moviePostersByCategory[(int) $currentPosterCategory['id']] ?? [];
+}
 $sportEvents = fetchAllAssoc($pdo, 'SELECT * FROM sport_events ORDER BY created_at DESC');
 $testimonialGallery = fetchAllAssoc($pdo, 'SELECT * FROM testimonials ORDER BY created_at DESC');
 $video = getPrimaryVideo($pdo);
@@ -747,13 +953,71 @@ $editingTestimonial = $editing['testimonials'];
                     <?php endforeach; ?>
                 </div>
             </section>
-        <?php elseif ($currentSection === 'movies'): ?>
+        <?php elseif ($currentSection === 'poster_categories'): ?>
             <section class="admin-section">
-                <h2>Movies & TV posters</h2>
+                <h2>Catégories de posters</h2>
+                <?php $isEditingPosterCategory = !empty($editingPosterCategory); ?>
+                <form method="POST" action="<?= $adminBase ?>/dashboard.php?section=poster_categories">
+                    <input type="hidden" name="csrf_token" value="<?= e($_SESSION['admin_csrf']) ?>">
+                    <input type="hidden" name="action" value="<?= $isEditingPosterCategory ? 'update_poster_category' : 'add_poster_category' ?>">
+                    <?php if ($isEditingPosterCategory): ?>
+                        <input type="hidden" name="id" value="<?= (int) $editingPosterCategory['id'] ?>">
+                        <p class="form-note">Edition de <?= e($editingPosterCategory['label']) ?></p>
+                    <?php endif; ?>
+                    <label>Nom de la catégorie
+                        <input type="text" name="category_label" required placeholder="Movies & TV Shows" value="<?= e($editingPosterCategory['label'] ?? '') ?>">
+                    </label>
+                    <label>Icône menu
+                        <input type="text" name="icon_key" placeholder="Ex: movies ou https://..." value="<?= e($editingPosterCategory['icon_key'] ?? '') ?>">
+                        <span class="form-note">Tu peux entrer un nom d'icône (movies, sports...) ou coller l'URL/SVG depuis <a href="https://lucide.dev/icons" target="_blank" rel="noopener">https://lucide.dev/icons</a>.</span>
+                    </label>
+                    <label>Titre section (H2)
+                        <input type="text" name="headline" placeholder="Latest blockbuster posters" value="<?= e($editingPosterCategory['headline'] ?? '') ?>">
+                    </label>
+                    <div class="form-actions">
+                        <button class="btn" type="submit"><?= $isEditingPosterCategory ? 'Mettre à jour' : 'Ajouter la catégorie' ?></button>
+                        <?php if ($isEditingPosterCategory): ?>
+                            <a class="link-light small" href="<?= $adminBase ?>/dashboard.php?section=poster_categories">Annuler</a>
+                        <?php endif; ?>
+                    </div>
+                </form>
+                <div class="list admin-media-list">
+                    <?php foreach ($posterCategories as $category): ?>
+                        <article>
+                            <div class="admin-media-thumb">
+                                <span class="icon"><?= adminNavIcon($category['icon_key']) ?></span>
+                                <div>
+                                    <strong><?= e($category['label']) ?></strong>
+                                    <small>Slug : <?= e($category['slug']) ?></small>
+                                    <small>H2 : <?= e($category['headline'] ?? 'Latest blockbuster posters') ?></small>
+                                </div>
+                            </div>
+                            <div class="row-actions">
+                                <?php $targetSection = ($category['slug'] ?? '') === 'sports-events' ? 'sports' : 'poster_' . $category['slug']; ?>
+                                <a class="link-light" href="<?= $adminBase ?>/dashboard.php?section=<?= urlencode($targetSection) ?>">Voir les posters</a>
+                                <a class="link-light" href="<?= $adminBase ?>/dashboard.php?section=poster_categories&edit_category=<?= (int) $category['id'] ?>">Modifier</a>
+                                <?php if (count($posterCategories) > 1): ?>
+                                    <form method="POST" action="<?= $adminBase ?>/dashboard.php?section=poster_categories" onsubmit="return confirm('Supprimer cette catégorie ?');">
+                                        <input type="hidden" name="csrf_token" value="<?= e($_SESSION['admin_csrf']) ?>">
+                                        <input type="hidden" name="action" value="delete_poster_category">
+                                        <input type="hidden" name="category_id" value="<?= (int) $category['id'] ?>">
+                                        <button type="submit" class="btn ghost danger">Supprimer</button>
+                                    </form>
+                                <?php endif; ?>
+                            </div>
+                        </article>
+                    <?php endforeach; ?>
+                </div>
+            </section>
+        <?php elseif ($currentPosterCategory): ?>
+            <section class="admin-section">
+                <h2><?= e($currentPosterCategory['label']) ?></h2>
+                <p class="form-note">Cette section gère les visuels utilisés dans la page publique : sélectionne un poster pour “<?= e($currentPosterCategory['label']) ?>”.</p>
                 <?php $isEditingMovie = !empty($editingMoviePoster); ?>
-                <form method="POST" action="<?= $adminBase ?>/dashboard.php?section=movies" enctype="multipart/form-data">
+                <form method="POST" action="<?= $adminBase ?>/dashboard.php?section=<?= e($currentSection) ?>" enctype="multipart/form-data">
                     <input type="hidden" name="csrf_token" value="<?= e($_SESSION['admin_csrf']) ?>">
                     <input type="hidden" name="action" value="<?= $isEditingMovie ? 'update_movie_poster' : 'add_movie_poster' ?>">
+                    <input type="hidden" name="category_id" value="<?= (int) $currentPosterCategory['id'] ?>">
                     <?php if ($isEditingMovie): ?>
                         <input type="hidden" name="id" value="<?= (int) $editingMoviePoster['id'] ?>">
                         <p class="form-note">Edition de <?= e($editingMoviePoster['title']) ?></p>
@@ -773,12 +1037,13 @@ $editingTestimonial = $editing['testimonials'];
                     <div class="form-actions">
                         <button class="btn" type="submit"><?= $isEditingMovie ? 'Mettre à jour' : 'Ajouter' ?></button>
                         <?php if ($isEditingMovie): ?>
-                            <a class="link-light small" href="<?= $adminBase ?>/dashboard.php?section=movies">Annuler</a>
+                            <a class="link-light small" href="<?= $adminBase ?>/dashboard.php?section=<?= e($currentSection) ?>">Annuler</a>
                         <?php endif; ?>
                     </div>
                 </form>
                 <div class="list admin-media-list">
-                    <?php foreach ($moviePosters as $poster): ?>
+                    <?php foreach ($activeMoviePosterList as $poster): ?>
+                        <?php $posterSlug = $poster['category_slug'] ?? ($currentPosterCategory['slug'] ?? ''); ?>
                         <article>
                             <div class="admin-media-thumb">
                                 <img src="<?= e($poster['image_url']) ?>" alt="<?= e($poster['title']) ?>">
@@ -787,8 +1052,9 @@ $editingTestimonial = $editing['testimonials'];
                                 </div>
                             </div>
                             <div class="row-actions">
-                                <a class="link-light" href="<?= $adminBase ?>/dashboard.php?section=movies&edit=movie_posters&id=<?= (int) $poster['id'] ?>">Modifier</a>
-                                <a class="link-light" href="<?= $adminBase ?>/dashboard.php?section=movies&delete=movie_posters&id=<?= (int) $poster['id'] ?>">Supprimer</a>
+                        <?php $posterTarget = ($posterSlug === 'sports-events') ? 'sports' : 'poster_' . $posterSlug; ?>
+                        <a class="link-light" href="<?= $adminBase ?>/dashboard.php?section=<?= urlencode($posterTarget) ?>&edit=movie_posters&id=<?= (int) $poster['id'] ?>">Modifier</a>
+                        <a class="link-light" href="<?= $adminBase ?>/dashboard.php?section=<?= urlencode($posterTarget) ?>&delete=movie_posters&id=<?= (int) $poster['id'] ?>">Supprimer</a>
                             </div>
                         </article>
                     <?php endforeach; ?>
