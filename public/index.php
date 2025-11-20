@@ -19,26 +19,17 @@ logVisit($pdo);
 
 
 $settings = getSettings($pdo);
-
 $themeVars = getActiveThemeVars($settings['active_theme'] ?? 'onyx');
-
 $brandTitleSetting = trim($settings['brand_title'] ?? '');
-
 $brandName = $brandTitleSetting !== '' ? $brandTitleSetting : ($config['brand_name'] ?? 'ABDO IPTV CANADA');
-
 $brandTaglineSetting = trim($settings['brand_tagline'] ?? '');
-
 $brandTagline = $brandTaglineSetting !== '' ? $brandTaglineSetting : 'Ultra IPTV · Canada';
-
 $brandLogoDesktop = trim($settings['brand_logo_desktop'] ?? '');
-
 $brandLogoMobile = trim($settings['brand_logo_mobile'] ?? '');
-
 if ($brandLogoMobile === '' && $brandLogoDesktop !== '') {
-
     $brandLogoMobile = $brandLogoDesktop;
-
 }
+$supportWhatsappNumber = trim($settings['support_whatsapp_number'] ?? '') ?: ($config['whatsapp_number'] ?? '');
 
 $sliders = fetchAllAssoc($pdo, 'SELECT * FROM sliders ORDER BY created_at DESC');
 
@@ -91,7 +82,7 @@ $structuredData = [
 
     'url' => $baseUrl,
 
-    'offers' => array_map(static function (array $offer) use ($config): array {
+    'offers' => array_map(static function (array $offer) use ($supportWhatsappNumber): array {
 
         return [
 
@@ -105,7 +96,7 @@ $structuredData = [
 
             'availability' => 'https://schema.org/InStock',
 
-            'url' => getWhatsappLink($config['whatsapp_number'], $offer['name'], (float) $offer['price'], $offer['duration']),
+            'url' => getWhatsappLink($supportWhatsappNumber, $offer['name'], (float) $offer['price'], $offer['duration']),
 
         ];
 
@@ -381,7 +372,7 @@ $faqs = [
 
             </nav>
 
-            <a class="btn primary header-cta" href="<?= e(getWhatsappLink($config['whatsapp_number'], 'Je veux un test')) ?>" target="_blank" rel="noopener">Free Trial</a>
+            <a class="btn primary header-cta" href="<?= e(getWhatsappLink($supportWhatsappNumber, '')) ?>" target="_blank" rel="noopener">Free Trial</a>
 
         </div>
 
@@ -421,7 +412,7 @@ $faqs = [
 
                     <a class="btn primary" href="#offres"><?= e($settings['hero_cta'] ?? 'Voir les offres') ?></a>
 
-                    <a class="btn outline" href="<?= e(getWhatsappLink($config['whatsapp_number'], 'Je veux tester 24h')) ?>" target="_blank" rel="noopener">Tester 24h</a>
+                    <a class="btn outline" href="<?= e(getWhatsappLink($supportWhatsappNumber, 'Je veux tester 24h')) ?>" target="_blank" rel="noopener">Tester 24h</a>
 
                 </div>
 
@@ -637,7 +628,7 @@ $faqs = [
 
                         </ul>
 
-                        <button class="btn primary" data-offer='<?= json_encode($offer, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>' data-whatsapp="<?= e(getWhatsappLink($config['whatsapp_number'], $offer['name'], (float) $offer['price'], $offer['duration'])) ?>">Acheter</button>
+                        <button class="btn primary" data-offer='<?= json_encode($offer, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>' data-whatsapp="<?= e(getWhatsappLink($supportWhatsappNumber, $offer['name'], (float) $offer['price'], $offer['duration'])) ?>">Acheter</button>
 
                         <small>Prêt en 5-7 min · WhatsApp</small>
 
@@ -935,7 +926,7 @@ $faqs = [
 
             <a href="#faq">FAQ</a>
 
-            <a href="<?= e(getWhatsappLink($config['whatsapp_number'], 'Support rapide')) ?>" target="_blank" rel="noopener">Support WhatsApp</a>
+            <a href="<?= e(getWhatsappLink($supportWhatsappNumber, '')) ?>" target="_blank" rel="noopener">Support WhatsApp</a>
 
         </div>
 
@@ -943,7 +934,7 @@ $faqs = [
 
 
 
-    <a class="whatsapp-float whatsapp-float--chat" href="<?= e(getWhatsappLink($config['whatsapp_number'], 'Salut ABDO, besoin info IPTV')) ?>" target="_blank" rel="noopener" aria-label="WhatsApp">
+    <a class="whatsapp-float whatsapp-float--chat" href="<?= e(getWhatsappLink($supportWhatsappNumber, '')) ?>" target="_blank" rel="noopener" aria-label="WhatsApp">
 
         <svg viewBox="0 0 24 24" role="img" aria-hidden="true">
 

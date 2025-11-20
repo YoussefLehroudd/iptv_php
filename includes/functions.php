@@ -63,6 +63,8 @@ function initializeDatabase(PDO $pdo, array $config): void
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
     SQL);
+    ensureColumnExists($pdo, 'offers', 'whatsapp_number', 'VARCHAR(40) NULL');
+    ensureColumnExists($pdo, 'offers', 'whatsapp_message', 'TEXT NULL');
 
     $pdo->exec(<<<SQL
         CREATE TABLE IF NOT EXISTS providers (
@@ -177,6 +179,7 @@ function initializeDatabase(PDO $pdo, array $config): void
         'active_theme' => 'onyx',
         'highlight_video_headline' => 'Live preview of our 2025 IPTV experience',
         'highlight_video_copy' => 'Des milliers de chaînes internationales + VOD illimité • Serveurs canadiens sécurisés.',
+        'support_whatsapp_number' => $config['whatsapp_number'] ?? '',
     ];
 
     foreach ($defaults as $key => $value) {
@@ -635,11 +638,42 @@ function getVisitStats(PDO $pdo): array
     ];
 }
 
-function getWhatsappLink(string $number, string $offerName, float $price = 0.0, string $duration = ''): string
+function getWhatsappLink(string $number, string $offerName, float $price = 0.0, string $duration = '', ?string $customMessage = null): string
 {
-    $cleanNumber = preg_replace('/[^\d+]/', '', $number);
-    $message = "Salam ABDO, bghit n9tar offer {$offerName} ({$duration}) b {$price} CAD. " .
-        'Svp sifts li les detail + paiement.';
+    $cleanNumber = preg_replace('/[^\d+]/', '', $number) ?? '';
+    $template = trim((string) $customMessage);
+    $message = '';
+    if ($template === '') {
+        $offerName = trim($offerName);
+        $duration = trim($duration);
+        $hasPrice = $price > 0;
+        $hasDetails = $offerName !== '' || $duration !== '' || $hasPrice;
+        if ($hasDetails) {
+            $message = 'Salam ABDO,';
+            if ($offerName !== '') {
+                $message .= " {$offerName}";
+            }
+            if ($duration !== '') {
+                $message .= " ({$duration})";
+            }
+            if ($hasPrice) {
+                $message .= ' b ' . number_format($price, 2, '.', ' ') . ' CAD';
+            }
+            $message .= '. Svp sifts li les detail + paiement.';
+        }
+    } else {
+        $priceValue = $price > 0 ? number_format($price, 2, '.', ' ') : '';
+        $replacements = [
+            '{{offer}}' => $offerName,
+            '{{duration}}' => $duration,
+            '{{price}}' => $priceValue,
+            '{{price_currency}}' => $priceValue !== '' ? $priceValue . ' CAD' : '',
+        ];
+        $message = strtr($template, $replacements);
+    }
+    if (trim($message) === '') {
+        return "https://wa.me/{$cleanNumber}";
+    }
     $encoded = urlencode($message);
     return "https://wa.me/{$cleanNumber}?text={$encoded}";
 }
@@ -749,3 +783,5 @@ function extractYoutubeId(string $url): ?string
     }
     return null;
 }
+
+

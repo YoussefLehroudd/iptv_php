@@ -112,15 +112,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     }
                 }
             }
-            adminFlashRedirect('Contenu mise Ã  jour.', 'content', $adminBase);
+            adminFlashRedirect('Contenu mise à jour.', 'content', $adminBase);
             break;
 
         case 'update_theme':
             $theme = $_POST['theme'] ?? 'onyx';
             if (isset(themeOptions()[$theme])) {
                 setSetting($pdo, 'active_theme', $theme);
-                adminFlashRedirect('ThÃ¨me changÃ©.', 'theme', $adminBase);
+                adminFlashRedirect('Thème changé.', 'theme', $adminBase);
             }
+            break;
+        case 'update_support_whatsapp':
+            $supportNumber = trim($_POST['support_whatsapp_number'] ?? '');
+            setSetting($pdo, 'support_whatsapp_number', $supportNumber);
+            adminFlashRedirect('Numéro WhatsApp support mis à jour.', 'offers', $adminBase);
             break;
         case 'add_slider':
             $title = trim($_POST['title'] ?? '');
@@ -140,7 +145,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     'cta_label' => trim($_POST['cta_label'] ?? ''),
                     'cta_description' => trim($_POST['cta_description'] ?? ''),
                 ]);
-                adminFlashRedirect('Slider ajoutÃ©.', 'slider', $adminBase);
+                adminFlashRedirect('Slider ajouté.', 'slider', $adminBase);
             }
             break;
         case 'update_slider':
@@ -172,7 +177,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             'cta_description' => trim($_POST['cta_description'] ?? ''),
                             'id' => $sliderId,
                         ]);
-                        adminFlashRedirect('Slider mise Ã  jour.', 'slider', $adminBase);
+                        adminFlashRedirect('Slider mise à jour.', 'slider', $adminBase);
                     }
                 }
             }
@@ -189,7 +194,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if ($title && $imageUrl) {
                 $stmt = $pdo->prepare('INSERT INTO movie_posters (title, image_url) VALUES (:title, :image)');
                 $stmt->execute(['title' => $title, 'image' => $imageUrl]);
-                adminFlashRedirect('Affiche ajoutÃ©.', 'movies', $adminBase);
+                adminFlashRedirect('Affiche ajouté.', 'movies', $adminBase);
             }
             break;
         case 'update_movie_poster':
@@ -208,7 +213,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     }
                     $stmt = $pdo->prepare('UPDATE movie_posters SET title = :title, image_url = :image WHERE id = :id');
                     $stmt->execute(['title' => $title, 'image' => $imageUrl, 'id' => $posterId]);
-                    adminFlashRedirect('Affiche mise Ã  jour.', 'movies', $adminBase);
+                    adminFlashRedirect('Affiche mise à jour.', 'movies', $adminBase);
                 }
             }
             break;
@@ -243,7 +248,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     }
                     $stmt = $pdo->prepare('UPDATE sport_events SET title = :title, image_url = :image WHERE id = :id');
                     $stmt->execute(['title' => $title, 'image' => $imageUrl, 'id' => $eventId]);
-                    adminFlashRedirect('Visuel sport mise Ã  jour.', 'sports', $adminBase);
+                    adminFlashRedirect('Visuel sport mise à jour.', 'sports', $adminBase);
                 }
             }
             break;
@@ -280,12 +285,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     }
                     $stmt = $pdo->prepare('UPDATE testimonials SET name = :name, message = :message, capture_url = :capture WHERE id = :id');
                     $stmt->execute(['name' => $name, 'message' => $message, 'capture' => $captureUrl, 'id' => $testimonialId]);
-                    adminFlashRedirect('Temoignage mise Ã  jour.', 'testimonials', $adminBase);
+                    adminFlashRedirect('Temoignage mise à jour.', 'testimonials', $adminBase);
                 }
             }
             break;
         case 'add_offer':
-            $stmt = $pdo->prepare('INSERT INTO offers (name, price, duration, description, features, is_featured) VALUES (:name, :price, :duration, :description, :features, :is_featured)');
+            $whatsappNumber = trim($_POST['whatsapp_number'] ?? '');
+            $whatsappMessage = trim($_POST['whatsapp_message'] ?? '');
+            $stmt = $pdo->prepare('INSERT INTO offers (name, price, duration, description, features, is_featured, whatsapp_number, whatsapp_message) VALUES (:name, :price, :duration, :description, :features, :is_featured, :whatsapp_number, :whatsapp_message)');
             $stmt->execute([
                 'name' => trim($_POST['name'] ?? ''),
                 'price' => (float) ($_POST['price'] ?? 0),
@@ -293,13 +300,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 'description' => trim($_POST['description'] ?? ''),
                 'features' => trim($_POST['features'] ?? ''),
                 'is_featured' => isset($_POST['is_featured']) ? 1 : 0,
+                'whatsapp_number' => $whatsappNumber !== '' ? $whatsappNumber : null,
+                'whatsapp_message' => $whatsappMessage !== '' ? $whatsappMessage : null,
             ]);
-            adminFlashRedirect('Offre crÃ©Ã©e.', 'offers', $adminBase);
+            adminFlashRedirect('Offre créée.', 'offers', $adminBase);
             break;
         case 'update_offer':
             $offerId = (int) ($_POST['id'] ?? 0);
             if ($offerId) {
-                $stmt = $pdo->prepare('UPDATE offers SET name = :name, price = :price, duration = :duration, description = :description, features = :features, is_featured = :is_featured WHERE id = :id');
+                $whatsappNumber = trim($_POST['whatsapp_number'] ?? '');
+                $whatsappMessage = trim($_POST['whatsapp_message'] ?? '');
+                $stmt = $pdo->prepare('UPDATE offers SET name = :name, price = :price, duration = :duration, description = :description, features = :features, is_featured = :is_featured, whatsapp_number = :whatsapp_number, whatsapp_message = :whatsapp_message WHERE id = :id');
                 $stmt->execute([
                     'name' => trim($_POST['name'] ?? ''),
                     'price' => (float) ($_POST['price'] ?? 0),
@@ -307,9 +318,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     'description' => trim($_POST['description'] ?? ''),
                     'features' => trim($_POST['features'] ?? ''),
                     'is_featured' => isset($_POST['is_featured']) ? 1 : 0,
+                    'whatsapp_number' => $whatsappNumber !== '' ? $whatsappNumber : null,
+                    'whatsapp_message' => $whatsappMessage !== '' ? $whatsappMessage : null,
                     'id' => $offerId,
                 ]);
-                adminFlashRedirect('Offre mise Ã  jour.', 'offers', $adminBase);
+                adminFlashRedirect('Offre mise à jour.', 'offers', $adminBase);
             }
             break;
         case 'add_provider':
@@ -321,7 +334,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if ($name && $logo) {
                 $stmt = $pdo->prepare('INSERT INTO providers (name, logo_url) VALUES (:name, :logo)');
                 $stmt->execute(['name' => $name, 'logo' => $logo]);
-                adminFlashRedirect('Provider ajoutÃ©.', 'providers', $adminBase);
+                adminFlashRedirect('Provider ajouté.', 'providers', $adminBase);
             }
             break;
         case 'update_provider':
@@ -341,7 +354,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     if ($name && $logo) {
                         $stmt = $pdo->prepare('UPDATE providers SET name = :name, logo_url = :logo WHERE id = :id');
                         $stmt->execute(['name' => $name, 'logo' => $logo, 'id' => $providerId]);
-                        adminFlashRedirect('Provider mise Ã  jour.', 'providers', $adminBase);
+                        adminFlashRedirect('Provider mise à jour.', 'providers', $adminBase);
                     }
                 }
             }
@@ -354,15 +367,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 'url' => trim($_POST['url'] ?? ''),
                 'thumbnail_url' => trim($_POST['thumbnail_url'] ?? ''),
             ]);
-            adminFlashRedirect('VidÃ©o enregistrÃ©e.', 'video', $adminBase);
+            adminFlashRedirect('Vidéo enregistrée.', 'video', $adminBase);
             break;
         case 'mark_message':
             markMessageAsRead($pdo, (int) $_POST['message_id']);
-            adminFlashRedirect('Message marquÃ© comme lu.', 'messages', $adminBase);
+            adminFlashRedirect('Message marqué comme lu.', 'messages', $adminBase);
             break;
         case 'delete_message':
             deleteContactMessage($pdo, (int) $_POST['message_id']);
-            adminFlashRedirect('Message supprimÃ©.', 'messages', $adminBase);
+            adminFlashRedirect('Message supprimé.', 'messages', $adminBase);
             break;
          case 'add_song':
 
@@ -461,10 +474,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $volume = max(0, min(100, (int) ($_POST['song_default_volume'] ?? 40)));
 
             $muted = isset($_POST['song_default_muted']) ? '1' : '0';
+            $visible = isset($_POST['music_player_visible']) ? '1' : '0';
 
             setSetting($pdo, 'song_default_volume', (string) $volume);
 
             setSetting($pdo, 'song_default_muted', $muted);
+            setSetting($pdo, 'music_player_visible', $visible);
 
             adminFlashRedirect('Parametres audio enregistres.', 'songs', $adminBase);
 
@@ -475,18 +490,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 if (isset($_GET['delete'], $_GET['id'])) {
     deleteRecord($pdo, preg_replace('/[^a-z_]/', '', $_GET['delete']), (int) $_GET['id']);
-    adminFlashRedirect('Ã‰lÃ©ment supprimÃ©.', $currentSection, $adminBase);
+    adminFlashRedirect('Élément supprimé.', $currentSection, $adminBase);
 }
 $settings = getSettings($pdo);
 $brandTitleSetting = trim($settings['brand_title'] ?? '');
 $brandTitle = $brandTitleSetting !== '' ? $brandTitleSetting : ($config['brand_name'] ?? 'ABDO IPTV CANADA');
 $brandTaglineSetting = trim($settings['brand_tagline'] ?? '');
-$brandTagline = $brandTaglineSetting !== '' ? $brandTaglineSetting : 'Ultra IPTV Â· Canada';
+$brandTagline = $brandTaglineSetting !== '' ? $brandTaglineSetting : 'Ultra IPTV · Canada';
 $brandLogoDesktop = trim($settings['brand_logo_desktop'] ?? '');
 $brandLogoMobile = trim($settings['brand_logo_mobile'] ?? '');
 if ($brandLogoMobile === '' && $brandLogoDesktop !== '') {
     $brandLogoMobile = $brandLogoDesktop;
 }
+$supportWhatsappNumberSetting = trim($settings['support_whatsapp_number'] ?? '');
+$supportWhatsappNumber = $supportWhatsappNumberSetting !== '' ? $supportWhatsappNumberSetting : ($config['whatsapp_number'] ?? '');
 $themeVars = getActiveThemeVars($settings['active_theme'] ?? 'onyx');
 $sliders = fetchAllAssoc($pdo, 'SELECT * FROM sliders ORDER BY created_at DESC');
 $offers = fetchAllAssoc($pdo, 'SELECT * FROM offers ORDER BY created_at DESC');
@@ -499,6 +516,7 @@ $messages = getContactMessages($pdo);
 $songs = getSongs($pdo);
 $songDefaultVolume = (int) ($settings['song_default_volume'] ?? 40);
 $songDefaultMuted = ($settings['song_default_muted'] ?? '1') === '1';
+$musicPlayerVisible = ($settings['music_player_visible'] ?? '1') === '1';
 $visitStats = getVisitStats($pdo);
 $themes = themeOptions();
 
@@ -556,12 +574,12 @@ $editingTestimonial = $editing['testimonials'];
         </button>
         <div>
             <h1>Panel ABDO IPTV</h1>
-            <p>ContrÃ´le complet du contenu 2025</p>
+            <p>Contrôle complet du contenu 2025</p>
         </div>
     </div>
     <div>
         <span><?= e($_SESSION['admin_email']) ?></span>
-        <a class="btn ghost" href="<?= $adminBase ?>/logout.php">DÃ©connexion</a>
+        <a class="btn ghost" href="<?= $adminBase ?>/logout.php">Déconnexion</a>
     </div>
 </header>
 
@@ -579,13 +597,13 @@ $editingTestimonial = $editing['testimonials'];
             <?php endforeach; ?>
         </nav>
         <div class="sidebar-footer">
-            <small>ConnectÃ© : <?= e($_SESSION['admin_email']) ?></small>
-            <a class="link-light" href="<?= $basePath ?>/" target="_blank" rel="noopener">â†— Voir le site public</a>
+            <small>Connecté : <?= e($_SESSION['admin_email']) ?></small>
+            <a class="link-light" href="<?= $basePath ?>/" target="_blank" rel="noopener">↗ Voir le site public</a>
         </div>
     </aside>
     <main class="admin-content">
         <?php if (!empty($feedback)): ?>
-            <div class="alert success" data-auto-dismiss><?= e(implode(' Â· ', $feedback)) ?></div>
+            <div class="alert success" data-auto-dismiss><?= e(implode(' · ', $feedback)) ?></div>
         <?php endif; ?>
 
         <?php if ($currentSection === 'content'): ?>
@@ -600,7 +618,7 @@ $editingTestimonial = $editing['testimonials'];
                     </label>
                     <label>Tagline (max 48 caracteres)
                         <input type="text" name="brand_tagline" maxlength="48" value="<?= e($brandTaglineSetting !== '' ? $brandTaglineSetting : $brandTagline) ?>">
-                        <span class="form-note">Court texte apres le nom. Exemple : Ultra IPTV Â· Canada.</span>
+                        <span class="form-note">Court texte apres le nom. Exemple : Ultra IPTV · Canada.</span>
                     </label>
                     <label>Logo desktop (280x64px)
                         <input type="file" name="brand_logo_desktop_file" accept="image/*">
@@ -637,10 +655,10 @@ $editingTestimonial = $editing['testimonials'];
                     <label>SEO Description
                         <textarea name="seo_description" rows="4"><?= e($settings['seo_description'] ?? '') ?></textarea>
                     </label>
-                    <label>Titre vidÃ©o highlight
+                    <label>Titre vidéo highlight
                         <input type="text" name="highlight_video_headline" value="<?= e($settings['highlight_video_headline'] ?? '') ?>">
                     </label>
-                    <label>Texte vidÃ©o highlight
+                    <label>Texte vidéo highlight
                         <textarea name="highlight_video_copy" rows="3"><?= e($settings['highlight_video_copy'] ?? '') ?></textarea>
                     </label>
                     <button class="btn" type="submit">Sauvegarder</button>
@@ -648,7 +666,7 @@ $editingTestimonial = $editing['testimonials'];
             </section>
         <?php elseif ($currentSection === 'theme'): ?>
             <section class="admin-section">
-                <h2>ThÃ¨me & couleurs</h2>
+                <h2>Thème & couleurs</h2>
                 <form method="POST" action="<?= $adminBase ?>/dashboard.php?section=theme">
                     <input type="hidden" name="csrf_token" value="<?= e($_SESSION['admin_csrf']) ?>">
                     <input type="hidden" name="action" value="update_theme">
@@ -658,7 +676,7 @@ $editingTestimonial = $editing['testimonials'];
                             <input type="radio" name="theme" value="<?= e($slug) ?>" <?= ($settings['active_theme'] ?? 'onyx') === $slug ? 'checked' : '' ?>>
                         </label>
                     <?php endforeach; ?>
-                    <button class="btn" type="submit">Changer le thÃ¨me</button>
+                    <button class="btn" type="submit">Changer le thème</button>
                 </form>
             </section>
         <?php elseif ($currentSection === 'slider'): ?>
@@ -670,7 +688,7 @@ $editingTestimonial = $editing['testimonials'];
                     <input type="hidden" name="action" value="<?= $isEditingSlider ? 'update_slider' : 'add_slider' ?>">
                     <?php if ($isEditingSlider): ?>
                         <input type="hidden" name="id" value="<?= (int) $editingSlider['id'] ?>">
-                        <p class="form-note">Modification de Â« <?= e($editingSlider['title']) ?> Â»</p>
+                        <p class="form-note">Modification de « <?= e($editingSlider['title']) ?> »</p>
                     <?php endif; ?>
                     <label>Titre
                         <input type="text" name="title" value="<?= e($editingSlider['title'] ?? '') ?>" required>
@@ -681,7 +699,7 @@ $editingTestimonial = $editing['testimonials'];
                     <label>Type media
                         <select name="media_type">
                             <option value="image" <?= (($editingSlider['media_type'] ?? '') === 'image') ? 'selected' : '' ?>>Image</option>
-                            <option value="video" <?= (($editingSlider['media_type'] ?? '') === 'video') ? 'selected' : '' ?>>VidÃ©o</option>
+                            <option value="video" <?= (($editingSlider['media_type'] ?? '') === 'video') ? 'selected' : '' ?>>Vidéo</option>
                         </select>
                     </label>
                     <label>Upload media
@@ -700,7 +718,7 @@ $editingTestimonial = $editing['testimonials'];
                         <input type="text" name="cta_description" value="<?= e($editingSlider['cta_description'] ?? '') ?>">
                     </label>
                     <div class="form-actions">
-                        <button class="btn" type="submit"><?= $isEditingSlider ? 'Mettre Ã  jour' : 'Ajouter' ?></button>
+                        <button class="btn" type="submit"><?= $isEditingSlider ? 'Mettre à jour' : 'Ajouter' ?></button>
                         <?php if ($isEditingSlider): ?>
                             <a class="link-light small" href="<?= $adminBase ?>/dashboard.php?section=slider">Annuler</a>
                         <?php endif; ?>
@@ -745,7 +763,7 @@ $editingTestimonial = $editing['testimonials'];
                         <input type="file" name="image_file" accept="image/*">
                     </label>
                     <div class="form-actions">
-                        <button class="btn" type="submit"><?= $isEditingMovie ? 'Mettre Ã  jour' : 'Ajouter' ?></button>
+                        <button class="btn" type="submit"><?= $isEditingMovie ? 'Mettre à jour' : 'Ajouter' ?></button>
                         <?php if ($isEditingMovie): ?>
                             <a class="link-light small" href="<?= $adminBase ?>/dashboard.php?section=movies">Annuler</a>
                         <?php endif; ?>
@@ -792,7 +810,7 @@ $editingTestimonial = $editing['testimonials'];
                         <input type="file" name="image_file" accept="image/*">
                     </label>
                     <div class="form-actions">
-                        <button class="btn" type="submit"><?= $isEditingSport ? 'Mettre Ã  jour' : 'Ajouter' ?></button>
+                        <button class="btn" type="submit"><?= $isEditingSport ? 'Mettre à jour' : 'Ajouter' ?></button>
                         <?php if ($isEditingSport): ?>
                             <a class="link-light small" href="<?= $adminBase ?>/dashboard.php?section=sports">Annuler</a>
                         <?php endif; ?>
@@ -842,7 +860,7 @@ $editingTestimonial = $editing['testimonials'];
                         <input type="file" name="capture_file" accept="image/*">
                     </label>
                     <div class="form-actions">
-                        <button class="btn" type="submit"><?= $isEditingTestimonial ? 'Mettre Ã  jour' : 'Ajouter' ?></button>
+                        <button class="btn" type="submit"><?= $isEditingTestimonial ? 'Mettre à jour' : 'Ajouter' ?></button>
                         <?php if ($isEditingTestimonial): ?>
                             <a class="link-light small" href="<?= $adminBase ?>/dashboard.php?section=testimonials">Annuler</a>
                         <?php endif; ?>
@@ -871,13 +889,22 @@ $editingTestimonial = $editing['testimonials'];
         <?php elseif ($currentSection === 'offers'): ?>
             <section class="admin-section">
                 <h2>Offres IPTV</h2>
+                <form class="support-form" method="POST" action="<?= $adminBase ?>/dashboard.php?section=offers">
+                    <input type="hidden" name="csrf_token" value="<?= e($_SESSION['admin_csrf']) ?>">
+                    <input type="hidden" name="action" value="update_support_whatsapp">
+                    <label>Numéro WhatsApp support
+                        <input type="text" name="support_whatsapp_number" value="<?= e($supportWhatsappNumberSetting !== '' ? $supportWhatsappNumberSetting : $supportWhatsappNumber) ?>" placeholder="+15145550000">
+                        <span class="form-note">Laisser vide pour utiliser le numéro défini dans config.php.</span>
+                    </label>
+                    <button class="btn ghost" type="submit">Mettre à jour le support</button>
+                </form>
                 <form method="POST" action="<?= $adminBase ?>/dashboard.php?section=offers">
                     <input type="hidden" name="csrf_token" value="<?= e($_SESSION['admin_csrf']) ?>">
                     <?php $isEditingOffer = !empty($editingOffer); ?>
                     <input type="hidden" name="action" value="<?= $isEditingOffer ? 'update_offer' : 'add_offer' ?>">
                     <?php if ($isEditingOffer): ?>
                         <input type="hidden" name="id" value="<?= (int) $editingOffer['id'] ?>">
-                        <p class="form-note">Modification de l'offre Â« <?= e($editingOffer['name']) ?> Â»</p>
+                        <p class="form-note">Modification de l'offre « <?= e($editingOffer['name']) ?> »</p>
                     <?php endif; ?>
                     <label>Nom offre
                         <input type="text" name="name" value="<?= e($editingOffer['name'] ?? '') ?>" required>
@@ -885,7 +912,7 @@ $editingTestimonial = $editing['testimonials'];
                     <label>Prix CAD
                         <input type="number" step="0.01" name="price" value="<?= e($editingOffer['price'] ?? '') ?>" required>
                     </label>
-                    <label>DurÃ©e
+                    <label>Durée
                         <input type="text" name="duration" value="<?= e($editingOffer['duration'] ?? '') ?>" required>
                     </label>
                     <label>Description
@@ -894,12 +921,20 @@ $editingTestimonial = $editing['testimonials'];
                     <label>Features (1 par ligne)
                         <textarea name="features" rows="3"><?= e($editingOffer['features'] ?? '') ?></textarea>
                     </label>
+                    <label>Numéro WhatsApp (optionnel)
+                        <input type="text" name="whatsapp_number" value="<?= e($editingOffer['whatsapp_number'] ?? '') ?>" placeholder="+15145550000">
+                        <span class="form-note">Laisser vide pour utiliser le numéro de support.</span>
+                    </label>
+                    <label>Message WhatsApp (optionnel)
+                        <textarea name="whatsapp_message" rows="3"><?= e($editingOffer['whatsapp_message'] ?? '') ?></textarea>
+                        <span class="form-note">Placeholders supportés : {{offer}}, {{duration}}, {{price}}.</span>
+                    </label>
                     <label class="switch">
                         <span>Mettre en avant</span>
                         <input type="checkbox" name="is_featured" <?= !empty($editingOffer['is_featured']) ? 'checked' : '' ?>>
                     </label>
                     <div class="form-actions">
-                        <button class="btn" type="submit"><?= $isEditingOffer ? 'Mettre Ã  jour' : 'Ajouter l\'offre' ?></button>
+                        <button class="btn" type="submit"><?= $isEditingOffer ? 'Mettre à jour' : 'Ajouter l\'offre' ?></button>
                         <?php if ($isEditingOffer): ?>
                             <a class="link-light small" href="<?= $adminBase ?>/dashboard.php?section=offers">Annuler</a>
                         <?php endif; ?>
@@ -929,7 +964,7 @@ $editingTestimonial = $editing['testimonials'];
                     <input type="hidden" name="action" value="<?= $isEditingProvider ? 'update_provider' : 'add_provider' ?>">
                     <?php if ($isEditingProvider): ?>
                         <input type="hidden" name="id" value="<?= (int) $editingProvider['id'] ?>">
-                        <p class="form-note">Modification du provider Â« <?= e($editingProvider['name']) ?> Â»</p>
+                        <p class="form-note">Modification du provider « <?= e($editingProvider['name']) ?> »</p>
                     <?php endif; ?>
                     <label>Nom
                         <input type="text" name="name" value="<?= e($editingProvider['name'] ?? '') ?>" required>
@@ -944,7 +979,7 @@ $editingTestimonial = $editing['testimonials'];
                         <?php endif; ?>
                     </label>
                     <div class="form-actions">
-                        <button class="btn" type="submit"><?= $isEditingProvider ? 'Mettre Ã  jour' : 'Ajouter' ?></button>
+                        <button class="btn" type="submit"><?= $isEditingProvider ? 'Mettre à jour' : 'Ajouter' ?></button>
                         <?php if ($isEditingProvider): ?>
                             <a class="link-light small" href="<?= $adminBase ?>/dashboard.php?section=providers">Annuler</a>
                         <?php endif; ?>
@@ -964,7 +999,7 @@ $editingTestimonial = $editing['testimonials'];
             </section>
         <?php elseif ($currentSection === 'video'): ?>
             <section class="admin-section">
-                <h2>VidÃ©o highlight</h2>
+                <h2>Vidéo highlight</h2>
                 <form method="POST" action="<?= $adminBase ?>/dashboard.php?section=video">
                     <input type="hidden" name="csrf_token" value="<?= e($_SESSION['admin_csrf']) ?>">
                     <input type="hidden" name="action" value="add_video">
@@ -983,7 +1018,7 @@ $editingTestimonial = $editing['testimonials'];
                     <button class="btn" type="submit">Ajouter</button>
                 </form>
                 <?php if ($video): ?>
-                    <p>DerniÃ¨re vidÃ©o: <strong><?= e($video['title']) ?></strong></p>
+                    <p>Dernière vidéo: <strong><?= e($video['title']) ?></strong></p>
                 <?php endif; ?>
             </section>
         <?php elseif ($currentSection === 'songs'): ?>
@@ -1030,6 +1065,10 @@ $editingTestimonial = $editing['testimonials'];
                     <label class="checkbox-inline">
                         <input type="checkbox" name="song_default_muted" value="1" <?= $songDefaultMuted ? 'checked' : '' ?>>
                         Demarrer en mode muet
+                    </label>
+                    <label class="checkbox-inline">
+                        <input type="checkbox" name="music_player_visible" value="1" <?= $musicPlayerVisible ? 'checked' : '' ?>>
+                        Afficher le lecteur sur la page
                     </label>
                     <button class="btn" type="submit">Sauvegarder les parametres audio</button>
                 </form>
@@ -1098,7 +1137,7 @@ $editingTestimonial = $editing['testimonials'];
                         <p><strong><?= e(number_format($visitStats['total'])) ?></strong> visites totales.</p>
                     </div>
                     <div class="analytics-pill">
-                        <span>Mise Ã  jour</span>
+                        <span>Mise à jour</span>
                         <strong><?= e(date('d/m H:i')) ?></strong>
                     </div>
                 </header>
@@ -1120,12 +1159,12 @@ $editingTestimonial = $editing['testimonials'];
                                 <?php endforeach; ?>
                             </ul>
                         <?php else: ?>
-                            <p class="analytics-empty">Aucune donnÃ©e pays pour le moment.</p>
+                            <p class="analytics-empty">Aucune donnée pays pour le moment.</p>
                         <?php endif; ?>
                     </article>
 
                     <article class="analytics-card">
-                        <div class="analytics-card__title">RÃ©gions les plus actives</div>
+                        <div class="analytics-card__title">Régions les plus actives</div>
                         <?php if (!empty($visitStats['regions'])): ?>
                             <ul class="analytics-list">
                                 <?php foreach ($visitStats['regions'] as $index => $region): ?>
@@ -1141,13 +1180,13 @@ $editingTestimonial = $editing['testimonials'];
                                 <?php endforeach; ?>
                             </ul>
                         <?php else: ?>
-                            <p class="analytics-empty">Aucune donnÃ©e rÃ©gion pour le moment.</p>
+                            <p class="analytics-empty">Aucune donnée région pour le moment.</p>
                         <?php endif; ?>
                     </article>
                 </div>
 
                 <article class="analytics-card analytics-card--wide">
-                    <div class="analytics-card__title">Visites rÃ©centes (IP + rÃ©gion)</div>
+                    <div class="analytics-card__title">Visites récentes (IP + région)</div>
                     <?php if (!empty($visitStats['recent'])): ?>
                         <ul class="analytics-recent">
                             <?php foreach ($visitStats['recent'] as $visit): ?>
@@ -1166,7 +1205,7 @@ $editingTestimonial = $editing['testimonials'];
                                     $parts[] = 'Inconnu';
                                 }
                                 $parts = array_values(array_unique($parts));
-                                $locationLabel = implode(' Â· ', $parts);
+                                $locationLabel = implode(' · ', $parts);
                                 $timestamp = strtotime($visit['created_at'] ?? '');
                                 $visitDate = $timestamp ? date('Y-m-d H:i', $timestamp) : ($visit['created_at'] ?? '');
                                 ?>
@@ -1180,7 +1219,7 @@ $editingTestimonial = $editing['testimonials'];
                             <?php endforeach; ?>
                         </ul>
                     <?php else: ?>
-                        <p class="analytics-empty">Aucune visite enregistrÃ©e pour le moment.</p>
+                        <p class="analytics-empty">Aucune visite enregistrée pour le moment.</p>
                     <?php endif; ?>
                 </article>
             </section>
@@ -1275,6 +1314,8 @@ document.addEventListener('DOMContentLoaded', () => {
 </script>
 </body>
 </html>
+
+
 
 
 
