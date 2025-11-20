@@ -1151,9 +1151,20 @@ main {
     overflow: hidden;
 }
 
-.media-section .slide img,
+.media-section .slide {
+    min-height: 420px;
+}
+
+.media-section .slide img {
+    height: 420px;
+    border-radius: 14px;
+    object-fit: contain;
+    width: 100%;
+    transition: transform 0.4s ease;
+    background: #000;
+}
+
 .testimonials .slide img {
-    height: 320px;
     border-radius: 14px;
     object-fit: cover;
     width: 100%;
@@ -1514,9 +1525,13 @@ footer {
         background: transparent;
     }
 
-    .media-section .slide img,
-    .testimonials .slide img {
-        height: 260px;
+    .media-section .slide {
+        min-height: clamp(420px, 120vw, 640px);
+    }
+
+    .media-section .slide img {
+        height: clamp(420px, 120vw, 640px);
+        object-fit: contain;
     }
 
     .testimonials .slide img {

@@ -562,6 +562,14 @@ $editingTestimonial = $editing['testimonials'];
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Panel ABDO IPTV</title>
     <link rel="stylesheet" href="<?= $basePath ?>/assets/css/style.css?v=<?= time() ?>">
+    <style>
+        /* Admin panel needs copy/paste + text selection */
+        body.admin,
+        body.admin * {
+            user-select: text;
+            -webkit-user-select: text;
+        }
+    </style>
 </head>
 <body class="admin">
 <header class="admin-bar">
