@@ -52,13 +52,35 @@ function adminNavIcon(string $name): string
     if ($name === '') {
         $name = 'content';
     }
-    if (str_starts_with($name, '<')) {
+
+    // Raw SVG pasted from lucide.dev or similar: keep inline so stroke inherits current color.
+    if (preg_match('#^<\s*svg\b#i', $name)) {
+        if (stripos($name, '<script') !== false) {
+            $icons = adminNavIcons();
+            return $icons['content'];
+        }
         return $name;
     }
+
+    // Accept data URI icons (ex: data:image/svg+xml;base64,...).
+    if (preg_match('#^data:image/[a-z0-9\+\-\.]+;base64,#i', $name)) {
+        if (preg_match('#^data:image/svg\\+xml;base64,#i', $name)) {
+            $raw = substr($name, strpos($name, ',') + 1);
+            $decoded = base64_decode($raw, true);
+            if ($decoded !== false && stripos($decoded, '<script') === false && preg_match('#<\\s*svg#i', $decoded)) {
+                return $decoded;
+            }
+        }
+        $safe = htmlspecialchars($name, ENT_QUOTES, 'UTF-8');
+        return '<img src="' . $safe . '" alt="">';
+    }
+
+    // External icon URLs.
     if (preg_match('#^https?://#i', $name)) {
         $safe = htmlspecialchars($name, ENT_QUOTES, 'UTF-8');
         return '<img src="' . $safe . '" alt="">';
     }
+
     $icons = adminNavIcons();
     return $icons[$name] ?? $icons['content'];
 }
@@ -104,15 +126,12 @@ $navItems = [
     'slider' => ['label' => 'Slider hero', 'icon' => adminNavIcon('slider')],
     'poster_categories' => ['label' => 'Poster categories', 'icon' => adminNavIcon('content')],
 ];
-if (isset($posterCategoriesBySlug['sports-events'])) {
-    $sportsCategory = $posterCategoriesBySlug['sports-events'];
-    $navItems['sports'] = [
-        'label' => $sportsCategory['label'],
-        'icon' => adminNavIcon($sportsCategory['icon_key'] ?? 'sports'),
-    ];
-}
 foreach ($posterCategories as $category) {
     if (($category['slug'] ?? '') === 'sports-events') {
+        $navItems['sports'] = [
+            'label' => $category['label'],
+            'icon' => adminNavIcon($category['icon_key'] ?? 'sports'),
+        ];
         continue;
     }
     $navItems['poster_' . $category['slug']] = [
@@ -146,6 +165,17 @@ if ($currentSection !== 'poster_categories' && str_starts_with($currentSection, 
         $currentSection = 'poster_' . $defaultPosterCategory['slug'];
     }
 }
+$sportsView = $_GET['sports_view'] ?? 'grid';
+if (!in_array($sportsView, ['grid', 'list'], true)) {
+    $sportsView = 'grid';
+}
+$sportsViewQuery = $sportsView === 'list' ? '&sports_view=list' : '';
+
+$postersView = $_GET['posters_view'] ?? 'grid';
+if (!in_array($postersView, ['grid', 'list'], true)) {
+    $postersView = 'grid';
+}
+$postersViewQuery = $postersView === 'list' ? '&posters_view=list' : '';
 if ($currentSection === 'poster_categories' && isset($_GET['edit_category'])) {
     $editId = (int) $_GET['edit_category'];
     if (isset($posterCategoriesById[$editId])) {
@@ -804,7 +834,15 @@ $editingTestimonial = $editing['testimonials'];
         <div class="sidebar-logo"><?= e($brandTitle) ?> <small><?= e($brandTagline) ?></small></div>
         <nav class="sidebar-nav">
             <?php foreach ($navItems as $slug => $item): ?>
-                <a class="<?= $currentSection === $slug ? 'active' : '' ?>" href="<?= $adminBase ?>/dashboard.php?section=<?= $slug ?>">
+                <?php
+                $navQuery = '';
+                if (str_starts_with($slug, 'poster_')) {
+                    $navQuery = $postersViewQuery;
+                } elseif ($slug === 'sports') {
+                    $navQuery = $sportsViewQuery;
+                }
+                ?>
+                <a class="<?= $currentSection === $slug ? 'active' : '' ?>" href="<?= $adminBase ?>/dashboard.php?section=<?= $slug ?><?= $navQuery ?>">
                     <span class="icon"><?= $item['icon'] ?></span>
                     <span><?= e($item['label']) ?></span>
                 </a>
@@ -994,10 +1032,11 @@ $editingTestimonial = $editing['testimonials'];
                             </div>
                             <div class="row-actions">
                                 <?php $targetSection = ($category['slug'] ?? '') === 'sports-events' ? 'sports' : 'poster_' . $category['slug']; ?>
-                                <a class="link-light" href="<?= $adminBase ?>/dashboard.php?section=<?= urlencode($targetSection) ?>">Voir les posters</a>
+                                <?php $targetQuery = ($targetSection === 'sports') ? '' : $postersViewQuery; ?>
+                                <a class="link-light" href="<?= $adminBase ?>/dashboard.php?section=<?= urlencode($targetSection) ?><?= $targetQuery ?>">Voir les posters</a>
                                 <a class="link-light" href="<?= $adminBase ?>/dashboard.php?section=poster_categories&edit_category=<?= (int) $category['id'] ?>">Modifier</a>
                                 <?php if (count($posterCategories) > 1): ?>
-                                    <form method="POST" action="<?= $adminBase ?>/dashboard.php?section=poster_categories" onsubmit="return confirm('Supprimer cette catégorie ?');">
+                                    <form method="POST" action="<?= $adminBase ?>/dashboard.php?section=poster_categories">
                                         <input type="hidden" name="csrf_token" value="<?= e($_SESSION['admin_csrf']) ?>">
                                         <input type="hidden" name="action" value="delete_poster_category">
                                         <input type="hidden" name="category_id" value="<?= (int) $category['id'] ?>">
@@ -1014,7 +1053,7 @@ $editingTestimonial = $editing['testimonials'];
                 <h2><?= e($currentPosterCategory['label']) ?></h2>
                 <p class="form-note">Cette section gère les visuels utilisés dans la page publique : sélectionne un poster pour “<?= e($currentPosterCategory['label']) ?>”.</p>
                 <?php $isEditingMovie = !empty($editingMoviePoster); ?>
-                <form method="POST" action="<?= $adminBase ?>/dashboard.php?section=<?= e($currentSection) ?>" enctype="multipart/form-data">
+                <form method="POST" action="<?= $adminBase ?>/dashboard.php?section=<?= e($currentSection) ?><?= $postersViewQuery ?>" enctype="multipart/form-data">
                     <input type="hidden" name="csrf_token" value="<?= e($_SESSION['admin_csrf']) ?>">
                     <input type="hidden" name="action" value="<?= $isEditingMovie ? 'update_movie_poster' : 'add_movie_poster' ?>">
                     <input type="hidden" name="category_id" value="<?= (int) $currentPosterCategory['id'] ?>">
@@ -1037,34 +1076,68 @@ $editingTestimonial = $editing['testimonials'];
                     <div class="form-actions">
                         <button class="btn" type="submit"><?= $isEditingMovie ? 'Mettre à jour' : 'Ajouter' ?></button>
                         <?php if ($isEditingMovie): ?>
-                            <a class="link-light small" href="<?= $adminBase ?>/dashboard.php?section=<?= e($currentSection) ?>">Annuler</a>
+                            <a class="link-light small" href="<?= $adminBase ?>/dashboard.php?section=<?= e($currentSection) ?><?= $postersViewQuery ?>">Annuler</a>
+                        <?php endif; ?>
+                        <?php if (!empty($activeMoviePosterList)): ?>
+                            <div class="media-view-toggle">
+                                <span>Affichage</span>
+                                <a class="toggle-btn <?= $postersView === 'grid' ? 'active' : '' ?>" href="<?= $adminBase ?>/dashboard.php?section=<?= e($currentSection) ?>&posters_view=grid">Grille</a>
+                                <a class="toggle-btn <?= $postersView === 'list' ? 'active' : '' ?>" href="<?= $adminBase ?>/dashboard.php?section=<?= e($currentSection) ?>&posters_view=list">Liste</a>
+                            </div>
                         <?php endif; ?>
                     </div>
                 </form>
-                <div class="list admin-media-list">
-                    <?php foreach ($activeMoviePosterList as $poster): ?>
-                        <?php $posterSlug = $poster['category_slug'] ?? ($currentPosterCategory['slug'] ?? ''); ?>
-                        <article>
-                            <div class="admin-media-thumb">
+                <?php if (empty($activeMoviePosterList)): ?>
+                    <p class="form-note">Aucun poster pour cette catégorie pour l'instant.</p>
+                <?php elseif ($postersView === 'grid'): ?>
+                    <div class="admin-media-grid">
+                        <?php foreach ($activeMoviePosterList as $poster): ?>
+                            <?php $posterSlug = $poster['category_slug'] ?? ($currentPosterCategory['slug'] ?? ''); ?>
+                            <article>
                                 <img src="<?= e($poster['image_url']) ?>" alt="<?= e($poster['title']) ?>">
-                                <div>
+                                <div class="media-card-body">
                                     <strong><?= e($poster['title']) ?></strong>
+                                    <div class="row-actions">
+                                        <?php
+                                        $posterTarget = ($posterSlug === 'sports-events') ? 'sports' : 'poster_' . $posterSlug;
+                                        $targetQuery = ($posterTarget === 'sports') ? '' : $postersViewQuery;
+                                        ?>
+                                        <a class="link-light" href="<?= $adminBase ?>/dashboard.php?section=<?= urlencode($posterTarget) ?><?= $targetQuery ?>&edit=movie_posters&id=<?= (int) $poster['id'] ?>">Modifier</a>
+                                        <a class="link-light" href="<?= $adminBase ?>/dashboard.php?section=<?= urlencode($posterTarget) ?><?= $targetQuery ?>&delete=movie_posters&id=<?= (int) $poster['id'] ?>">Supprimer</a>
+                                    </div>
                                 </div>
-                            </div>
-                            <div class="row-actions">
-                        <?php $posterTarget = ($posterSlug === 'sports-events') ? 'sports' : 'poster_' . $posterSlug; ?>
-                        <a class="link-light" href="<?= $adminBase ?>/dashboard.php?section=<?= urlencode($posterTarget) ?>&edit=movie_posters&id=<?= (int) $poster['id'] ?>">Modifier</a>
-                        <a class="link-light" href="<?= $adminBase ?>/dashboard.php?section=<?= urlencode($posterTarget) ?>&delete=movie_posters&id=<?= (int) $poster['id'] ?>">Supprimer</a>
-                            </div>
-                        </article>
-                    <?php endforeach; ?>
-                </div>
+                            </article>
+                        <?php endforeach; ?>
+                    </div>
+                <?php else: ?>
+                    <div class="list admin-media-list">
+                        <?php foreach ($activeMoviePosterList as $poster): ?>
+                            <?php $posterSlug = $poster['category_slug'] ?? ($currentPosterCategory['slug'] ?? ''); ?>
+                            <article>
+                                <div class="admin-media-thumb">
+                                    <img src="<?= e($poster['image_url']) ?>" alt="<?= e($poster['title']) ?>">
+                                    <div>
+                                        <strong><?= e($poster['title']) ?></strong>
+                                    </div>
+                                </div>
+                                <div class="row-actions">
+                                    <?php
+                                    $posterTarget = ($posterSlug === 'sports-events') ? 'sports' : 'poster_' . $posterSlug;
+                                    $targetQuery = ($posterTarget === 'sports') ? '' : $postersViewQuery;
+                                    ?>
+                                    <a class="link-light" href="<?= $adminBase ?>/dashboard.php?section=<?= urlencode($posterTarget) ?><?= $targetQuery ?>&edit=movie_posters&id=<?= (int) $poster['id'] ?>">Modifier</a>
+                                    <a class="link-light" href="<?= $adminBase ?>/dashboard.php?section=<?= urlencode($posterTarget) ?><?= $targetQuery ?>&delete=movie_posters&id=<?= (int) $poster['id'] ?>">Supprimer</a>
+                                </div>
+                            </article>
+                        <?php endforeach; ?>
+                    </div>
+                <?php endif; ?>
             </section>
         <?php elseif ($currentSection === 'sports'): ?>
             <section class="admin-section">
                 <h2>Sports events</h2>
                 <?php $isEditingSport = !empty($editingSportEvent); ?>
-                <form method="POST" action="<?= $adminBase ?>/dashboard.php?section=sports" enctype="multipart/form-data">
+                <form method="POST" action="<?= $adminBase ?>/dashboard.php?section=sports<?= $sportsViewQuery ?>" enctype="multipart/form-data">
                     <input type="hidden" name="csrf_token" value="<?= e($_SESSION['admin_csrf']) ?>">
                     <input type="hidden" name="action" value="<?= $isEditingSport ? 'update_sport_event' : 'add_sport_event' ?>">
                     <?php if ($isEditingSport): ?>
@@ -1086,26 +1159,52 @@ $editingTestimonial = $editing['testimonials'];
                     <div class="form-actions">
                         <button class="btn" type="submit"><?= $isEditingSport ? 'Mettre à jour' : 'Ajouter' ?></button>
                         <?php if ($isEditingSport): ?>
-                            <a class="link-light small" href="<?= $adminBase ?>/dashboard.php?section=sports">Annuler</a>
+                            <a class="link-light small" href="<?= $adminBase ?>/dashboard.php?section=sports<?= $sportsViewQuery ?>">Annuler</a>
+                        <?php endif; ?>
+                        <?php if (!empty($sportEvents)): ?>
+                            <div class="media-view-toggle">
+                                <span>Affichage</span>
+                                <a class="toggle-btn <?= $sportsView === 'grid' ? 'active' : '' ?>" href="<?= $adminBase ?>/dashboard.php?section=sports&sports_view=grid">Grille</a>
+                                <a class="toggle-btn <?= $sportsView === 'list' ? 'active' : '' ?>" href="<?= $adminBase ?>/dashboard.php?section=sports&sports_view=list">Liste</a>
+                            </div>
                         <?php endif; ?>
                     </div>
                 </form>
-                <div class="list admin-media-list">
-                    <?php foreach ($sportEvents as $event): ?>
-                        <article>
-                            <div class="admin-media-thumb">
+                <?php if (empty($sportEvents)): ?>
+                    <p class="form-note">Aucun visuel sport pour le moment.</p>
+                <?php elseif ($sportsView === 'grid'): ?>
+                    <div class="admin-media-grid">
+                        <?php foreach ($sportEvents as $event): ?>
+                            <article>
                                 <img src="<?= e($event['image_url']) ?>" alt="<?= e($event['title']) ?>">
-                                <div>
+                                <div class="media-card-body">
                                     <strong><?= e($event['title']) ?></strong>
+                                    <div class="row-actions">
+                                        <a class="link-light" href="<?= $adminBase ?>/dashboard.php?section=sports<?= $sportsViewQuery ?>&edit=sport_events&id=<?= (int) $event['id'] ?>">Modifier</a>
+                                        <a class="link-light" href="<?= $adminBase ?>/dashboard.php?section=sports<?= $sportsViewQuery ?>&delete=sport_events&id=<?= (int) $event['id'] ?>">Supprimer</a>
+                                    </div>
                                 </div>
-                            </div>
-                            <div class="row-actions">
-                                <a class="link-light" href="<?= $adminBase ?>/dashboard.php?section=sports&edit=sport_events&id=<?= (int) $event['id'] ?>">Modifier</a>
-                                <a class="link-light" href="<?= $adminBase ?>/dashboard.php?section=sports&delete=sport_events&id=<?= (int) $event['id'] ?>">Supprimer</a>
-                            </div>
-                        </article>
-                    <?php endforeach; ?>
-                </div>
+                            </article>
+                        <?php endforeach; ?>
+                    </div>
+                <?php else: ?>
+                    <div class="list admin-media-list">
+                        <?php foreach ($sportEvents as $event): ?>
+                            <article>
+                                <div class="admin-media-thumb">
+                                    <img src="<?= e($event['image_url']) ?>" alt="<?= e($event['title']) ?>">
+                                    <div>
+                                        <strong><?= e($event['title']) ?></strong>
+                                    </div>
+                                </div>
+                                <div class="row-actions">
+                                    <a class="link-light" href="<?= $adminBase ?>/dashboard.php?section=sports<?= $sportsViewQuery ?>&edit=sport_events&id=<?= (int) $event['id'] ?>">Modifier</a>
+                                    <a class="link-light" href="<?= $adminBase ?>/dashboard.php?section=sports<?= $sportsViewQuery ?>&delete=sport_events&id=<?= (int) $event['id'] ?>">Supprimer</a>
+                                </div>
+                            </article>
+                        <?php endforeach; ?>
+                    </div>
+                <?php endif; ?>
             </section>
         <?php elseif ($currentSection === 'testimonials'): ?>
             <section class="admin-section">

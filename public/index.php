@@ -108,15 +108,15 @@ $structuredData = [
 
 $defaultMoviePosters = [
 
-    ['title' => 'Kung Fu Panda 4', 'image_url' => $mediaBase . '/kfp4.webp'],
+    ['title' => 'Kung Fu Panda 4', 'image_url' => $mediaBase . '/kfp4.webp', 'category_label' => 'Movies & TV Shows'],
 
-    ['title' => 'The Beekeeper', 'image_url' => $mediaBase . '/beekeeper.webp'],
+    ['title' => 'The Beekeeper', 'image_url' => $mediaBase . '/beekeeper.webp', 'category_label' => 'Movies & TV Shows'],
 
-    ['title' => 'Kingdom of the Planet of the Apes', 'image_url' => $mediaBase . '/apes.webp'],
+    ['title' => 'Kingdom of the Planet of the Apes', 'image_url' => $mediaBase . '/apes.webp', 'category_label' => 'Movies & TV Shows'],
 
-    ['title' => 'Furiosa', 'image_url' => $mediaBase . '/furiosa.webp'],
+    ['title' => 'Furiosa', 'image_url' => $mediaBase . '/furiosa.webp', 'category_label' => 'Movies & TV Shows'],
 
-    ['title' => 'The Queen\'s Gambit', 'image_url' => $mediaBase . '/queens.webp'],
+    ['title' => 'The Queen\'s Gambit', 'image_url' => $mediaBase . '/queens.webp', 'category_label' => 'Movies & TV Shows'],
 
 ];
 
@@ -150,13 +150,44 @@ $defaultTestimonials = [
 
 
 
-$moviePosters = fetchAllAssoc($pdo, 'SELECT id, title, image_url FROM movie_posters ORDER BY created_at DESC');
+$posterCategories = fetchAllAssoc($pdo, 'SELECT id, label, slug, headline FROM poster_categories ORDER BY label ASC');
+$moviePosterRows = fetchAllAssoc($pdo, 'SELECT id, title, image_url, category_id FROM movie_posters ORDER BY created_at DESC');
 
-if (!$moviePosters) {
+if (!$posterCategories) {
 
-    $moviePosters = $defaultMoviePosters;
+    $posterCategories = [
+
+        ['id' => 0, 'label' => 'Movies & TV Shows', 'slug' => 'movies', 'headline' => 'Latest blockbuster posters'],
+
+    ];
 
 }
+
+$moviePosterGroups = [];
+foreach ($posterCategories as $category) {
+    $moviePosterGroups[(int) $category['id']] = [
+        'label' => $category['label'],
+        'slug' => $category['slug'],
+        'headline' => $category['headline'] ?? 'Latest blockbuster posters',
+        'posters' => [],
+    ];
+}
+
+if ($moviePosterRows) {
+    $fallbackCategoryId = (int) ($posterCategories[0]['id'] ?? 0);
+    foreach ($moviePosterRows as $poster) {
+        $categoryId = (int) ($poster['category_id'] ?? $fallbackCategoryId);
+        if (!isset($moviePosterGroups[$categoryId])) {
+            $categoryId = $fallbackCategoryId;
+        }
+        $moviePosterGroups[$categoryId]['posters'][] = $poster;
+    }
+} else {
+    $firstCategoryId = (int) ($posterCategories[0]['id'] ?? 0);
+    $moviePosterGroups[$firstCategoryId]['posters'] = $defaultMoviePosters;
+}
+
+$moviePosterGroups = array_values(array_filter($moviePosterGroups, static fn(array $group): bool => !empty($group['posters'])));
 
 $sportEvents = fetchAllAssoc($pdo, 'SELECT id, title, image_url FROM sport_events ORDER BY created_at DESC');
 
@@ -674,47 +705,56 @@ $faqs = [
 
 
 
-        <section class="media-section" id="movies" data-animate>
+        <?php foreach ($moviePosterGroups as $index => $group): ?>
 
-            <div class="section-head">
+            <?php
+            $sectionId = $index === 0 ? 'movies' : 'movies-' . ($index + 1);
+            $sliderId = $sectionId;
+            ?>
 
-                <p class="eyebrow">Movies & TV Shows</p>
+            <section class="media-section" id="<?= e($sectionId) ?>" data-animate>
 
-                <h2>Latest blockbuster posters</h2>
+                <div class="section-head">
 
-            </div>
+                    <p class="eyebrow"><?= e($group['label']) ?></p>
 
-            <div class="media-carousel">
+                    <h2><?= e($group['headline'] ?? 'Latest blockbuster posters') ?></h2>
 
-                <div class="slider" data-slider="movies" data-visible="4" data-infinite="true">
+                </div>
 
-                    <div class="slider-track">
+                <div class="media-carousel">
 
-                        <?php foreach ($moviePosters as $poster): ?>
+                    <div class="slider" data-slider="<?= e($sliderId) ?>" data-visible="4" data-infinite="true">
 
-                            <article class="slide poster">
+                        <div class="slider-track">
 
-                                <img src="<?= e($poster['image_url']) ?>" alt="<?= e($poster['title']) ?>">
+                            <?php foreach ($group['posters'] as $poster): ?>
 
-                            </article>
+                                <article class="slide poster">
 
-                        <?php endforeach; ?>
+                                    <img src="<?= e($poster['image_url']) ?>" alt="<?= e($poster['title']) ?>">
+
+                                </article>
+
+                            <?php endforeach; ?>
+
+                        </div>
+
+                    </div>
+
+                    <div class="slider-nav" data-slider-nav="<?= e($sliderId) ?>">
+
+                        <button type="button" data-slider-target="<?= e($sliderId) ?>" data-direction="prev">&lsaquo;</button>
+
+                        <button type="button" data-slider-target="<?= e($sliderId) ?>" data-direction="next">&rsaquo;</button>
 
                     </div>
 
                 </div>
 
-                <div class="slider-nav" data-slider-nav="movies">
+            </section>
 
-                    <button type="button" data-slider-target="movies" data-direction="prev">‹</button>
-
-                    <button type="button" data-slider-target="movies" data-direction="next">›</button>
-
-                </div>
-
-            </div>
-
-        </section>
+        <?php endforeach; ?>
 
 
 

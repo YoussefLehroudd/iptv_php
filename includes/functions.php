@@ -76,13 +76,35 @@ function initializeDatabase(PDO $pdo, array $config): void
     SQL);
 
     $pdo->exec(<<<SQL
+        CREATE TABLE IF NOT EXISTS poster_categories (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            label VARCHAR(160) NOT NULL,
+            slug VARCHAR(160) NOT NULL UNIQUE,
+            icon_key TEXT NOT NULL,
+            headline VARCHAR(160) NOT NULL DEFAULT 'Latest blockbuster posters',
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    SQL);
+    try {
+        $pdo->exec("ALTER TABLE poster_categories MODIFY icon_key TEXT NOT NULL");
+    } catch (\PDOException) {
+        // Already modified.
+    }
+    ensureColumnExists($pdo, 'poster_categories', 'headline', "VARCHAR(160) NOT NULL DEFAULT 'Latest blockbuster posters'");
+
+    $pdo->exec(<<<SQL
         CREATE TABLE IF NOT EXISTS movie_posters (
             id INT AUTO_INCREMENT PRIMARY KEY,
             title VARCHAR(255) NOT NULL,
             image_url TEXT NOT NULL,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            category_label VARCHAR(120) NULL,
+            category_id INT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            INDEX idx_movie_posters_category (category_id)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
     SQL);
+    ensureColumnExists($pdo, 'movie_posters', 'category_label', "VARCHAR(120) NULL");
+    ensureColumnExists($pdo, 'movie_posters', 'category_id', "INT NULL");
 
     $pdo->exec(<<<SQL
         CREATE TABLE IF NOT EXISTS sport_events (
@@ -271,6 +293,22 @@ function initializeDatabase(PDO $pdo, array $config): void
         $stmt->execute(['new' => $newUrl, 'old' => $old]);
     }
 
+    $defaultPosterCategorySlug = 'movies-tv';
+    $defaultPosterCategoryLabel = 'Movies & TV Shows';
+    $categoryStmt = $pdo->prepare('SELECT id FROM poster_categories WHERE slug = :slug LIMIT 1');
+    $categoryStmt->execute(['slug' => $defaultPosterCategorySlug]);
+    $defaultPosterCategoryId = (int) ($categoryStmt->fetchColumn() ?: 0);
+    if ($defaultPosterCategoryId === 0) {
+        $insertCategory = $pdo->prepare('INSERT INTO poster_categories (label, slug, icon_key, headline) VALUES (:label, :slug, :icon_key, :headline)');
+        $insertCategory->execute([
+            'label' => $defaultPosterCategoryLabel,
+            'slug' => $defaultPosterCategorySlug,
+            'icon_key' => 'movies',
+            'headline' => 'Latest blockbuster posters',
+        ]);
+        $defaultPosterCategoryId = (int) $pdo->lastInsertId();
+    }
+
     if ((int) $pdo->query('SELECT COUNT(*) FROM movie_posters')->fetchColumn() === 0) {
         $defaults = [
             ['title' => 'Kung Fu Panda 4', 'image_url' => 'https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=900&q=80'],
@@ -278,10 +316,18 @@ function initializeDatabase(PDO $pdo, array $config): void
             ['title' => 'Kingdom of the Planet of the Apes', 'image_url' => 'https://images.unsplash.com/photo-1500534314209-a25ddb2bd429?auto=format&fit=crop&w=900&q=80'],
             ['title' => 'Furiosa', 'image_url' => 'https://images.unsplash.com/photo-1469474968028-56623f02e42e?auto=format&fit=crop&w=900&q=80'],
         ];
-        $stmt = $pdo->prepare('INSERT INTO movie_posters (title, image_url) VALUES (:title, :image_url)');
+        $stmt = $pdo->prepare('INSERT INTO movie_posters (title, image_url, category_label, category_id) VALUES (:title, :image_url, :category_label, :category_id)');
         foreach ($defaults as $poster) {
+            $poster['category_label'] = $defaultPosterCategoryLabel;
+            $poster['category_id'] = $defaultPosterCategoryId;
             $stmt->execute($poster);
         }
+    } else {
+        $assignStmt = $pdo->prepare('UPDATE movie_posters SET category_id = :category_id, category_label = COALESCE(category_label, :label) WHERE category_id IS NULL OR category_id = 0');
+        $assignStmt->execute([
+            'category_id' => $defaultPosterCategoryId,
+            'label' => $defaultPosterCategoryLabel,
+        ]);
     }
 
     if ((int) $pdo->query('SELECT COUNT(*) FROM sport_events')->fetchColumn() === 0) {
@@ -301,17 +347,17 @@ function initializeDatabase(PDO $pdo, array $config): void
         $defaults = [
             [
                 'name' => 'Nadia - Ottawa',
-                'message' => 'Support WhatsApp toujours pr�sent, j\'ai renouvel� pour 12 mois direct.',
+                'message' => 'Support WhatsApp toujours present, j\'ai renouvele pour 12 mois direct.',
                 'capture_url' => 'https://images.unsplash.com/photo-1504593811423-6dd665756598?auto=format&fit=crop&w=800&q=80',
             ],
             [
-                'name' => 'Adam - Montr�al',
-                'message' => 'Zero coupure pendant les playoffs NBA, la qualit� 4K est folle.',
+                'name' => 'Adam - Montreal',
+                'message' => 'Zero coupure pendant les playoffs NBA, la qualite 4K est folle.',
                 'capture_url' => 'https://images.unsplash.com/photo-1544723795-3fb6469f5b39?auto=format&fit=crop&w=800&q=80',
             ],
             [
-                'name' => 'Sofia - Qu�bec',
-                'message' => 'Activation en 5 minutes via WhatsApp. Je recommande � 100%.',
+                'name' => 'Sofia - Quebec',
+                'message' => 'Activation en 5 minutes via WhatsApp. Je recommande a 100%.',
                 'capture_url' => 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?auto=format&fit=crop&w=800&q=80',
             ],
         ];
