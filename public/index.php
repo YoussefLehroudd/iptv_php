@@ -659,7 +659,7 @@ $faqs = [
 
                         </ul>
 
-                        <button class="btn primary" data-offer='<?= json_encode($offer, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>' data-whatsapp="<?= e(getWhatsappLink($supportWhatsappNumber, $offer['name'], (float) $offer['price'], $offer['duration'])) ?>">Acheter</button>
+                        <a class="btn primary" href="<?= $basePath ?>/checkout.php?offer=<?= (int) $offer['id'] ?>">Acheter</a>
 
                         <small>Prêt en 5-7 min · WhatsApp</small>
 
@@ -989,28 +989,6 @@ $faqs = [
             <path fill="currentColor" d="M5 15.5 12 8l7 7.5-1.4 1.4L12 10.8l-5.6 6.1z"/>
         </svg>
     </button>
-
-
-
-    <div class="modal" id="offerModal" hidden>
-
-        <div class="modal-content">
-
-            <button class="modal-close" type="button" aria-label="Fermer">×</button>
-
-            <h3 id="modalTitle"></h3>
-
-            <p class="modal-duration"></p>
-
-            <p class="modal-description"></p>
-
-            <ul class="modal-features"></ul>
-
-            <a class="btn primary" id="modalCta" target="_blank" rel="noopener">Acheter sur WhatsApp</a>
-
-        </div>
-
-    </div>
 
 
 
