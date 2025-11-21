@@ -5,6 +5,7 @@ document.addEventListener('DOMContentLoaded', () => {
   initAnimations();
   initGreetingRotator();
   initOfferModal();
+  initCardValidation();
   initFaq();
   initMobileMenu();
   initProviderCarousel();
@@ -386,6 +387,7 @@ function initSliders() {
   window.addEventListener('orientationchange', handleResize);
 }
 
+
 function initAnimations() {
   const animated = document.querySelectorAll('[data-animate]');
   if (!animated.length) return;
@@ -559,6 +561,345 @@ function initMobileMenu() {
   }
 
   applyState();
+}
+
+function initCardValidation() {
+  const numberInput = document.querySelector('[data-card-number]');
+  const expiryInput = document.querySelector('[data-card-expiry]');
+  const cvcInput = document.querySelector('[data-card-cvc]');
+  const nameInput = document.querySelector('[data-card-name]');
+  const submitBtn = document.querySelector('[data-card-submit]');
+  const brandWrapper = document.querySelector('[data-card-brand]');
+  const brandImg = brandWrapper?.querySelector('img');
+  if (!numberInput || !expiryInput || !cvcInput || !nameInput || !submitBtn) return;
+
+  const BRAND_META = [
+    { name: 'Visa', pattern: /^4/, logo: 'https://footballpatchking.com/cdn/shopifycloud/checkout-web/assets/c1/assets/visa.sxIq5Dot.svg', cvc: 3, length: 16 },
+    { name: 'Mastercard', pattern: /^(5[1-5]|2[2-7])/, logo: 'https://footballpatchking.com/cdn/shopifycloud/checkout-web/assets/c1/assets/mastercard.1c4_lyMp.svg', cvc: 3, length: 16 },
+    { name: 'Amex', pattern: /^3[47]/, logo: 'https://footballpatchking.com/cdn/shopifycloud/checkout-web/assets/c1/assets/amex.Csr7hRoy.svg', cvc: 4, length: 15 },
+    { name: 'Discover', pattern: /^6(?:011|5)/, logo: 'https://footballpatchking.com/cdn/shopifycloud/checkout-web/assets/c1/assets/discover.C7UbFpNb.svg', cvc: 3, length: 16 },
+    { name: 'JCB', pattern: /^(?:2131|1800|35)/, logo: 'https://footballpatchking.com/cdn/shopifycloud/checkout-web/assets/c1/assets/jcb.BgZHqF0u.svg', cvc: 3, length: 16 },
+    { name: 'UnionPay', pattern: /^62/, logo: 'https://footballpatchking.com/cdn/shopifycloud/checkout-web/assets/c1/assets/unionpay.8M-Boq_z.svg', cvc: 3, length: 16 },
+  ];
+
+  const defaultLogo = brandImg?.dataset.defaultLogo || brandImg?.src || BRAND_META[0].logo;
+  const defaultBrand = {
+    name: 'Card',
+    logo: defaultLogo,
+    cvc: 3,
+    length: 19,
+  };
+  if (brandImg) {
+    brandImg.src = defaultBrand.logo;
+    brandImg.alt = 'Card';
+  }
+  let activeBrand = defaultBrand;
+
+  const showError = (input, key, message) => {
+    const label = input.closest('label');
+    label?.classList.add('has-error');
+    const msg = document.querySelector(`[data-error="${key}"]`);
+    if (msg) {
+      msg.textContent = message;
+      msg.style.display = 'block';
+    }
+  };
+  const clearError = (input, key) => {
+    const label = input.closest('label');
+    label?.classList.remove('has-error');
+    const msg = document.querySelector(`[data-error="${key}"]`);
+    if (msg) {
+      msg.textContent = '';
+      msg.style.display = 'none';
+    }
+  };
+
+  const detectBrand = (digits) => BRAND_META.find((brand) => brand.pattern.test(digits));
+  const checkExpiryDigits = (digitString) => {
+    if (digitString.length !== 4) {
+      return { valid: false, message: 'Enter a valid expiration date' };
+    }
+    const month = Number(digitString.slice(0, 2));
+    const year = Number(`20${digitString.slice(2)}`);
+    if (Number.isNaN(month) || Number.isNaN(year) || month < 1 || month > 12) {
+      return { valid: false, message: 'Use MM / YY format' };
+    }
+    const now = new Date();
+    const exp = new Date(year, month - 1, 1);
+    exp.setMonth(exp.getMonth() + 1);
+    if (exp <= now) {
+      return { valid: false, message: 'Card is expired' };
+    }
+    return { valid: true, message: '' };
+  };
+
+  numberInput.addEventListener('input', () => {
+    let digits = numberInput.value.replace(/\D/g, '');
+    const brand = detectBrand(digits);
+    const limit = brand?.length || defaultBrand.length;
+    digits = digits.slice(0, limit);
+    numberInput.value = digits.replace(/(\d{4})(?=\d)/g, '$1 ');
+    if (brand && digits.length > 0) {
+      activeBrand = brand;
+      if (brandImg) {
+        brandImg.src = brand.logo;
+        brandImg.alt = brand.name;
+      }
+      cvcInput.maxLength = brand.cvc;
+      cvcInput.dataset.requiredCvc = String(brand.cvc);
+      brandWrapper?.removeAttribute('hidden');
+    } else {
+      activeBrand = defaultBrand;
+      if (brandImg) {
+        brandImg.src = defaultBrand.logo;
+        brandImg.alt = 'Card';
+      }
+      cvcInput.maxLength = defaultBrand.cvc;
+      cvcInput.dataset.requiredCvc = String(defaultBrand.cvc);
+      if (digits.length === 0) {
+        brandWrapper?.setAttribute('hidden', 'hidden');
+      } else {
+        brandWrapper?.removeAttribute('hidden');
+      }
+    }
+    if (digits.length === 0) {
+      clearError(numberInput, 'card_number');
+      return;
+    }
+    validateNumber();
+  });
+
+  expiryInput.addEventListener('input', () => {
+    let digits = expiryInput.value.replace(/\D/g, '');
+    digits = digits.slice(0, 4);
+    if (digits.length >= 3) {
+      digits = `${digits.slice(0, 2)} / ${digits.slice(2)}`;
+    }
+    expiryInput.value = digits;
+    const rawDigits = expiryInput.value.replace(/\D/g, '');
+    if (rawDigits.length < 4) {
+      clearError(expiryInput, 'expiry');
+    } else {
+      const { valid, message } = checkExpiryDigits(rawDigits);
+      if (valid) {
+        clearError(expiryInput, 'expiry');
+      } else {
+        showError(expiryInput, 'expiry', message);
+      }
+    }
+  });
+
+  numberInput.addEventListener('blur', validateNumber);
+  expiryInput.addEventListener('blur', validateExpiry);
+  cvcInput.addEventListener('blur', validateCvc);
+  nameInput.addEventListener('blur', validateName);
+
+  const allowKeys = (event, allowedExtras = []) => {
+    const basics = ['Backspace', 'Delete', 'ArrowLeft', 'ArrowRight', 'Tab'];
+    if (basics.includes(event.key) || allowedExtras.includes(event.key)) return;
+    if (/^\d$/.test(event.key)) return;
+    event.preventDefault();
+  };
+
+  numberInput.addEventListener('keydown', (event) => {
+    if (event.key === ' ') return;
+    allowKeys(event);
+  });
+  expiryInput.addEventListener('keydown', (event) => {
+    if (event.key === '/' || event.key === ' ') return;
+    allowKeys(event);
+  });
+  cvcInput.addEventListener('beforeinput', (event) => {
+    if (event.data && /\D/.test(event.data)) {
+      event.preventDefault();
+    }
+  });
+  cvcInput.addEventListener('keydown', (event) => {
+    if (!/^\d$/.test(event.key) && !['Backspace', 'Delete', 'ArrowLeft', 'ArrowRight', 'Tab'].includes(event.key)) {
+      event.preventDefault();
+    }
+  });
+  cvcInput.addEventListener('paste', (event) => {
+    event.preventDefault();
+    const max = activeBrand?.cvc || Number(cvcInput.dataset.requiredCvc) || 3;
+    const data = (event.clipboardData || window.clipboardData).getData('text');
+    const digits = data.replace(/\D/g, '').slice(0, max);
+    cvcInput.value = digits;
+  });
+
+  cvcInput.addEventListener('input', () => {
+    const max = activeBrand?.cvc || Number(cvcInput.dataset.requiredCvc) || 3;
+    const digits = cvcInput.value.replace(/\D/g, '').slice(0, max);
+    cvcInput.value = digits;
+    if (digits.length === 0) {
+      clearError(cvcInput, 'cvc');
+    } else if (digits.length < max) {
+      showError(cvcInput, 'cvc', `Enter the ${max}-digit security code`);
+    } else {
+      clearError(cvcInput, 'cvc');
+    }
+  });
+
+  nameInput.addEventListener('input', () => clearError(nameInput, 'card_name'));
+
+  const luhnCheck = (num) => {
+    let sum = 0;
+    let shouldDouble = false;
+    for (let i = num.length - 1; i >= 0; i -= 1) {
+      let digit = parseInt(num.charAt(i), 10);
+      if (shouldDouble) {
+        digit *= 2;
+        if (digit > 9) digit -= 9;
+      }
+      sum += digit;
+      shouldDouble = !shouldDouble;
+    }
+    return sum % 10 === 0;
+  };
+
+  const validateNumber = () => {
+    const digits = numberInput.value.replace(/\D/g, '');
+    const brand = detectBrand(digits);
+    const requiredLength = brand?.length || defaultBrand.length;
+    if (!brand) {
+      showError(numberInput, 'card_number', 'Enter a valid card number');
+      return false;
+    }
+    if (digits.length < requiredLength) {
+      showError(numberInput, 'card_number', `Enter the ${requiredLength}-digit card number`);
+      return false;
+    }
+    if (!luhnCheck(digits)) {
+      showError(numberInput, 'card_number', 'Enter a valid card number');
+      return false;
+    }
+    clearError(numberInput, 'card_number');
+    return true;
+  };
+
+  const validateExpiry = () => {
+    const cleanedDigits = expiryInput.value.replace(/\D/g, '');
+    if (cleanedDigits.length < 4) {
+      showError(expiryInput, 'expiry', 'Enter a valid expiration date');
+      return false;
+    }
+    const result = checkExpiryDigits(cleanedDigits);
+    if (!result.valid) {
+      showError(expiryInput, 'expiry', result.message);
+      return false;
+    }
+    clearError(expiryInput, 'expiry');
+    return true;
+  };
+
+  const validateCvc = () => {
+    const digits = cvcInput.value.replace(/\D/g, '');
+    const needed = activeBrand?.cvc || Number(cvcInput.dataset.requiredCvc) || 3;
+    if (digits.length !== needed) {
+      showError(cvcInput, 'cvc', `Enter the ${needed}-digit security code`);
+      return false;
+    }
+    return true;
+  };
+
+  const validateName = () => {
+    if (nameInput.value.trim().length < 3) {
+      showError(nameInput, 'card_name', 'Enter the name on the card');
+      return false;
+    }
+    return true;
+  };
+
+  const otpModal = document.querySelector('[data-otp-modal]');
+  const otpInput = document.querySelector('[data-otp-input]');
+  const otpConfirm = document.querySelector('[data-otp-confirm]');
+  const otpCancel = document.querySelector('[data-otp-cancel]');
+  const otpError = document.querySelector('[data-otp-error]');
+  const confirmation = document.querySelector('[data-payment-confirmation]');
+  const codeEl = document.querySelector('[data-confirmation-code]');
+
+  const showOtpModal = () => {
+    if (!otpModal) return;
+    otpModal.hidden = false;
+    document.body.classList.add('modal-open');
+    if (otpInput) {
+      otpInput.value = '';
+      otpInput.focus();
+    }
+    if (otpError) {
+      otpError.textContent = '';
+    }
+  };
+  const hideOtpModal = () => {
+    if (otpModal) otpModal.hidden = true;
+    document.body.classList.remove('modal-open');
+  };
+
+  const sanitizeOtp = (value) => value.replace(/\D/g, '').slice(0, 6);
+
+  submitBtn.addEventListener('click', () => {
+    const ok = [validateNumber(), validateExpiry(), validateCvc(), validateName()].every(Boolean);
+    if (!ok) {
+      submitBtn.setAttribute('aria-invalid', 'true');
+      return;
+    }
+    submitBtn.setAttribute('aria-invalid', 'false');
+    if (confirmation) {
+      confirmation.hidden = true;
+    }
+    showOtpModal();
+  });
+
+  const finalizePayment = () => {
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Processing...';
+    setTimeout(() => {
+      submitBtn.disabled = false;
+      submitBtn.textContent = 'Pay now';
+      hideOtpModal();
+      const code = `ABC${Math.floor(Math.random() * 9000 + 1000)}EXAMPLE`;
+      if (confirmation && codeEl) {
+        codeEl.textContent = code;
+        confirmation.hidden = false;
+        confirmation.scrollIntoView({ behavior: 'smooth' });
+      }
+    }, 1000);
+  };
+
+  otpConfirm?.addEventListener('click', () => {
+    const digits = sanitizeOtp(otpInput?.value || '');
+    if (digits.length !== 6) {
+      if (otpError) otpError.textContent = 'Enter the 6-digit secure code.';
+    } else {
+      if (otpError) otpError.textContent = '';
+      finalizePayment();
+    }
+  });
+  otpCancel?.addEventListener('click', () => {
+    hideOtpModal();
+  });
+  otpInput?.addEventListener('keydown', (event) => {
+    if (!/^\d$/.test(event.key) && !['Backspace', 'Delete', 'ArrowLeft', 'ArrowRight', 'Tab'].includes(event.key)) {
+      event.preventDefault();
+    }
+  });
+  otpInput?.addEventListener('beforeinput', (event) => {
+    if (event.data && /\D/.test(event.data)) {
+      event.preventDefault();
+    }
+  });
+  otpInput?.addEventListener('input', () => {
+    if (!otpInput) return;
+    const cleaned = sanitizeOtp(otpInput.value);
+    if (otpInput.value !== cleaned) {
+      otpInput.value = cleaned;
+    }
+  });
+  otpInput?.addEventListener('paste', (event) => {
+    event.preventDefault();
+    const data = (event.clipboardData || window.clipboardData)?.getData('text') || '';
+    otpInput.value = sanitizeOtp(data);
+  });
 }
 
 function initProviderCarousel() {
