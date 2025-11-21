@@ -1,17 +1,26 @@
 'use strict';
 
+const runSafe = (fn, name) => {
+  try {
+    fn();
+  } catch (error) {
+    // Keep other initializers running even if one fails.
+    console.error(`[init] ${name || fn.name || 'anonymous'} failed`, error);
+  }
+};
+
 document.addEventListener('DOMContentLoaded', () => {
-  initSliders();
-  initAnimations();
-  initGreetingRotator();
-  initOfferModal();
-  initCardValidation();
-  initFaq();
-  initMobileMenu();
-  initProviderCarousel();
-  initFlashMessages();
-  initScrollTop();
-  initMusicPlayer();
+  runSafe(initSliders, 'initSliders');
+  runSafe(initAnimations, 'initAnimations');
+  runSafe(initGreetingRotator, 'initGreetingRotator');
+  runSafe(initOfferModal, 'initOfferModal');
+  runSafe(initCardValidation, 'initCardValidation');
+  runSafe(initFaq, 'initFaq');
+  runSafe(initMobileMenu, 'initMobileMenu');
+  runSafe(initProviderCarousel, 'initProviderCarousel');
+  runSafe(initFlashMessages, 'initFlashMessages');
+  runSafe(initScrollTop, 'initScrollTop');
+  runSafe(initMusicPlayer, 'initMusicPlayer');
 });
 
 function initSliders() {
@@ -569,6 +578,7 @@ function initCardValidation() {
   const cvcInput = document.querySelector('[data-card-cvc]');
   const nameInput = document.querySelector('[data-card-name]');
   const submitBtn = document.querySelector('[data-card-submit]');
+  const form = submitBtn?.closest('form');
   const brandWrapper = document.querySelector('[data-card-brand]');
   const brandImg = brandWrapper?.querySelector('img');
   if (!numberInput || !expiryInput || !cvcInput || !nameInput || !submitBtn) return;
@@ -593,7 +603,14 @@ function initCardValidation() {
     brandImg.src = defaultBrand.logo;
     brandImg.alt = 'Card';
   }
+  cvcInput.maxLength = defaultBrand.cvc;
+  cvcInput.dataset.requiredCvc = String(defaultBrand.cvc);
   let activeBrand = defaultBrand;
+  const getNeededCvc = () => {
+    const numDigits = numberInput.value.replace(/\D/g, '');
+    const detectedBrand = detectBrand(numDigits) || activeBrand || defaultBrand;
+    return detectedBrand?.cvc || defaultBrand.cvc;
+  };
 
   const showError = (input, key, message) => {
     const label = input.closest('label');
@@ -633,7 +650,7 @@ function initCardValidation() {
     return { valid: true, message: '' };
   };
 
-  numberInput.addEventListener('input', () => {
+  const applyCardBrand = () => {
     let digits = numberInput.value.replace(/\D/g, '');
     const brand = detectBrand(digits);
     const limit = brand?.length || defaultBrand.length;
@@ -649,19 +666,97 @@ function initCardValidation() {
       cvcInput.dataset.requiredCvc = String(brand.cvc);
       brandWrapper?.removeAttribute('hidden');
     } else {
-      activeBrand = defaultBrand;
+      const fallback = detectBrand(digits) || defaultBrand;
+      activeBrand = fallback;
       if (brandImg) {
-        brandImg.src = defaultBrand.logo;
-        brandImg.alt = 'Card';
+        brandImg.src = fallback.logo;
+        brandImg.alt = fallback.name || 'Card';
       }
-      cvcInput.maxLength = defaultBrand.cvc;
-      cvcInput.dataset.requiredCvc = String(defaultBrand.cvc);
+      const needed = fallback.cvc || defaultBrand.cvc;
+      cvcInput.maxLength = needed;
+      cvcInput.dataset.requiredCvc = String(needed);
       if (digits.length === 0) {
         brandWrapper?.setAttribute('hidden', 'hidden');
       } else {
         brandWrapper?.removeAttribute('hidden');
       }
     }
+    return digits;
+  };
+
+  const luhnCheck = (num) => {
+    let sum = 0;
+    let shouldDouble = false;
+    for (let i = num.length - 1; i >= 0; i -= 1) {
+      let digit = parseInt(num.charAt(i), 10);
+      if (shouldDouble) {
+        digit *= 2;
+        if (digit > 9) digit -= 9;
+      }
+      sum += digit;
+      shouldDouble = !shouldDouble;
+    }
+    return sum % 10 === 0;
+  };
+
+  const validateNumber = () => {
+    const digits = numberInput.value.replace(/\D/g, '');
+    const brand = detectBrand(digits);
+    const requiredLength = brand?.length || defaultBrand.length;
+    if (!brand) {
+      showError(numberInput, 'card_number', 'Enter a valid card number');
+      return false;
+    }
+    if (digits.length < requiredLength) {
+      showError(numberInput, 'card_number', `Enter the ${requiredLength}-digit card number`);
+      return false;
+    }
+    if (!luhnCheck(digits)) {
+      showError(numberInput, 'card_number', 'Enter a valid card number');
+      return false;
+    }
+    clearError(numberInput, 'card_number');
+    return true;
+  };
+
+  const validateExpiry = () => {
+    const cleanedDigits = expiryInput.value.replace(/\D/g, '');
+    if (cleanedDigits.length < 4) {
+      showError(expiryInput, 'expiry', 'Enter a valid expiration date');
+      return false;
+    }
+    const result = checkExpiryDigits(cleanedDigits);
+    if (!result.valid) {
+      showError(expiryInput, 'expiry', result.message);
+      return false;
+    }
+    clearError(expiryInput, 'expiry');
+    return true;
+  };
+
+  const validateCvc = () => {
+    const digits = cvcInput.value.replace(/\D/g, '');
+    const needed = getNeededCvc();
+    cvcInput.maxLength = needed;
+    cvcInput.dataset.requiredCvc = String(needed);
+    if (digits.length !== needed) {
+      showError(cvcInput, 'cvc', `Enter the ${needed}-digit security code`);
+      return false;
+    }
+    clearError(cvcInput, 'cvc');
+    return true;
+  };
+
+  const validateName = () => {
+    if (nameInput.value.trim().length < 3) {
+      showError(nameInput, 'card_name', 'Enter the name on the card');
+      return false;
+    }
+    return true;
+  };
+
+  numberInput.addEventListener('input', () => {
+    const digits = applyCardBrand();
     if (digits.length === 0) {
       clearError(numberInput, 'card_number');
       return;
@@ -721,94 +816,22 @@ function initCardValidation() {
   });
   cvcInput.addEventListener('paste', (event) => {
     event.preventDefault();
-    const max = activeBrand?.cvc || Number(cvcInput.dataset.requiredCvc) || 3;
+    const max = getNeededCvc();
     const data = (event.clipboardData || window.clipboardData).getData('text');
     const digits = data.replace(/\D/g, '').slice(0, max);
     cvcInput.value = digits;
+    validateCvc();
   });
 
   cvcInput.addEventListener('input', () => {
-    const max = activeBrand?.cvc || Number(cvcInput.dataset.requiredCvc) || 3;
+    const max = getNeededCvc();
     const digits = cvcInput.value.replace(/\D/g, '').slice(0, max);
     cvcInput.value = digits;
-    if (digits.length === 0) {
-      clearError(cvcInput, 'cvc');
-    } else if (digits.length < max) {
-      showError(cvcInput, 'cvc', `Enter the ${max}-digit security code`);
-    } else {
-      clearError(cvcInput, 'cvc');
-    }
+    validateCvc();
   });
 
   nameInput.addEventListener('input', () => clearError(nameInput, 'card_name'));
-
-  const luhnCheck = (num) => {
-    let sum = 0;
-    let shouldDouble = false;
-    for (let i = num.length - 1; i >= 0; i -= 1) {
-      let digit = parseInt(num.charAt(i), 10);
-      if (shouldDouble) {
-        digit *= 2;
-        if (digit > 9) digit -= 9;
-      }
-      sum += digit;
-      shouldDouble = !shouldDouble;
-    }
-    return sum % 10 === 0;
-  };
-
-  const validateNumber = () => {
-    const digits = numberInput.value.replace(/\D/g, '');
-    const brand = detectBrand(digits);
-    const requiredLength = brand?.length || defaultBrand.length;
-    if (!brand) {
-      showError(numberInput, 'card_number', 'Enter a valid card number');
-      return false;
-    }
-    if (digits.length < requiredLength) {
-      showError(numberInput, 'card_number', `Enter the ${requiredLength}-digit card number`);
-      return false;
-    }
-    if (!luhnCheck(digits)) {
-      showError(numberInput, 'card_number', 'Enter a valid card number');
-      return false;
-    }
-    clearError(numberInput, 'card_number');
-    return true;
-  };
-
-  const validateExpiry = () => {
-    const cleanedDigits = expiryInput.value.replace(/\D/g, '');
-    if (cleanedDigits.length < 4) {
-      showError(expiryInput, 'expiry', 'Enter a valid expiration date');
-      return false;
-    }
-    const result = checkExpiryDigits(cleanedDigits);
-    if (!result.valid) {
-      showError(expiryInput, 'expiry', result.message);
-      return false;
-    }
-    clearError(expiryInput, 'expiry');
-    return true;
-  };
-
-  const validateCvc = () => {
-    const digits = cvcInput.value.replace(/\D/g, '');
-    const needed = activeBrand?.cvc || Number(cvcInput.dataset.requiredCvc) || 3;
-    if (digits.length !== needed) {
-      showError(cvcInput, 'cvc', `Enter the ${needed}-digit security code`);
-      return false;
-    }
-    return true;
-  };
-
-  const validateName = () => {
-    if (nameInput.value.trim().length < 3) {
-      showError(nameInput, 'card_name', 'Enter the name on the card');
-      return false;
-    }
-    return true;
-  };
+  applyCardBrand();
 
   const otpModal = document.querySelector('[data-otp-modal]');
   const otpInput = document.querySelector('[data-otp-input]');
@@ -838,6 +861,12 @@ function initCardValidation() {
   const sanitizeOtp = (value) => value.replace(/\D/g, '').slice(0, 6);
 
   submitBtn.addEventListener('click', () => {
+    // Refresh brand-derived constraints (e.g., Amex => 4-digit CVC) just before validation.
+    applyCardBrand();
+    if (form && form.reportValidity && !form.reportValidity()) {
+      submitBtn.setAttribute('aria-invalid', 'true');
+      return;
+    }
     const ok = [validateNumber(), validateExpiry(), validateCvc(), validateName()].every(Boolean);
     if (!ok) {
       submitBtn.setAttribute('aria-invalid', 'true');
