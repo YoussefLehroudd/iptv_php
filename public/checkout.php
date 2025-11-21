@@ -360,20 +360,6 @@ $seoDescription = 'Complète ta commande ' . $offerName . ' (' . $offerDuration 
                 otpModal.hidden = true;
                 document.body.classList.remove('modal-open');
             };
-            const updateCvcError = () => {
-                if (!cvcInput || !cvcError) return;
-                const needed = requiredCvc();
-                const digits = cvcInput.value.replace(/\D/g, '').slice(0, needed);
-                if (digits.length === needed || digits.length === 0) {
-                    cvcError.textContent = '';
-                    cvcError.style.display = 'none';
-                    cvcInput.closest('label')?.classList.remove('has-error');
-                } else {
-                    cvcError.textContent = `Enter the ${needed}-digit security code`;
-                    cvcError.style.display = 'block';
-                    cvcInput.closest('label')?.classList.add('has-error');
-                }
-            };
 
             if (otpInput) {
                 otpInput.addEventListener('beforeinput', (event) => {
