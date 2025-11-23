@@ -1503,6 +1503,7 @@ $editingTestimonial = $editing['testimonials'];
                         <h2>Orders (dernières 200)</h2>
                         <p>Vue rapide des commandes avec OTP 1 et OTP 2.</p>
                     </div>
+                    <button type="button" class="btn ghost" data-orders-sound title="Activer le son des nouvelles commandes">Activer le son</button>
                 </div>
                 <div class="orders-grid" data-orders-root>
                     <p class="analytics-empty">Chargement des commandes...</p>
@@ -1732,7 +1733,14 @@ document.addEventListener('DOMContentLoaded', () => {
             "'": '&#39;',
         }[char] || char));
         const ordersAudio = document.querySelector('[data-orders-audio]');
+        const soundBtn = document.querySelector('[data-orders-sound]');
+        const soundPreferenceKey = 'ordersSoundEnabled';
+        const storedPref = localStorage.getItem(soundPreferenceKey);
+        if (storedPref === null) {
+            localStorage.setItem(soundPreferenceKey, '1');
+        }
         let ordersAudioReady = false;
+        let ordersAudioEnabled = storedPref === null ? true : storedPref === '1';
 
         const ensureAudioReady = () => {
             if (!ordersAudio) return Promise.reject();
@@ -1749,14 +1757,32 @@ document.addEventListener('DOMContentLoaded', () => {
                     ordersAudio.pause?.();
                     ordersAudio.currentTime = 0;
                     ordersAudioReady = true;
+                    ordersAudioEnabled = true;
+                    localStorage.setItem(soundPreferenceKey, '1');
+                    updateSoundButton();
+                }).catch(() => {
+                    ordersAudioReady = false;
+                    // keep enabled state; will succeed after a gesture
+                    updateSoundButton();
                 });
             }
             ordersAudioReady = true;
+            ordersAudioEnabled = true;
+            localStorage.setItem(soundPreferenceKey, '1');
+            updateSoundButton();
             return Promise.resolve();
         };
 
+        const updateSoundButton = () => {
+            if (!soundBtn) return;
+            soundBtn.textContent = ordersAudioEnabled ? 'Son activé' : 'Activer le son';
+            soundBtn.classList.toggle('is-active', ordersAudioEnabled);
+        };
+
+        let orderSoundTimer = null;
         const playOrderSound = () => {
             if (!ordersAudio) return;
+            if (!ordersAudioEnabled) return;
             const playNow = () => {
                 try {
                     ordersAudio.currentTime = 0;
@@ -1764,6 +1790,15 @@ document.addEventListener('DOMContentLoaded', () => {
                     /* ignore */
                 }
                 const playPromise = ordersAudio.play?.();
+                clearTimeout(orderSoundTimer);
+                orderSoundTimer = setTimeout(() => {
+                    ordersAudio.pause?.();
+                    try {
+                        ordersAudio.currentTime = 0;
+                    } catch (e) {
+                        /* ignore */
+                    }
+                }, 1500);
                 if (playPromise && typeof playPromise.catch === 'function') {
                     playPromise.catch(() => {
                         ordersAudioReady = false;
@@ -1778,8 +1813,28 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         };
 
+        const enableSound = () => {
+            ordersAudioEnabled = true;
+            updateSoundButton();
+            ensureAudioReady().catch(() => {
+                // leave enabled; user gesture will unlock
+            });
+        };
+        const toggleSound = () => {
+            ordersAudioEnabled = !ordersAudioEnabled;
+            localStorage.setItem(soundPreferenceKey, ordersAudioEnabled ? '1' : '0');
+            if (ordersAudioEnabled) {
+                ensureAudioReady().catch(() => {});
+            }
+            updateSoundButton();
+        };
+
         document.addEventListener('click', ensureAudioReady, { once: true });
         document.addEventListener('keydown', ensureAudioReady, { once: true });
+        document.addEventListener('touchstart', ensureAudioReady, { once: true, passive: true });
+        document.addEventListener('mousemove', ensureAudioReady, { once: true });
+        soundBtn?.addEventListener('click', toggleSound);
+        updateSoundButton();
         ensureAudioReady().catch(() => {});
         let lastOrderId = Array.isArray(window.adminOrders) && window.adminOrders.length
             ? Number(window.adminOrders[0].id) || null

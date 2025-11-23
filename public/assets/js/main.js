@@ -995,6 +995,7 @@ function initCardValidation() {
         showOtpModal();
       }, 50);
     }, remaining);
+    if (confirmation) confirmation.hidden = true;
   });
 
   const finalizePayment = () => {
@@ -1012,6 +1013,12 @@ function initCardValidation() {
       if (confirmation) {
         confirmation.hidden = false;
         confirmation.scrollIntoView({ behavior: 'smooth' });
+      }
+      if (form && typeof form.reset === 'function') {
+        form.reset();
+        applyCardBrand();
+        showPaymentError('');
+        if (confirmation) confirmation.hidden = false;
       }
     }, 1000);
   };
