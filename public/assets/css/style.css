@@ -2569,6 +2569,15 @@ body.sidebar-open .sidebar-overlay {
     flex-direction: column;
     gap: 0.9rem;
 }
+.section-head .btn[data-orders-sound] {
+    padding: 0.45rem 0.8rem;
+    font-size: 0.9rem;
+    border-color: rgba(255, 255, 255, 0.6);
+}
+.section-head .btn[data-orders-sound].is-active {
+    border-color: #7bf0c6;
+    color: #7bf0c6;
+}
 .order-card {
     background: radial-gradient(circle at 10% 10%, rgba(255, 255, 255, 0.05), transparent 55%), rgba(255, 255, 255, 0.02);
     border: 1px solid rgba(255, 255, 255, 0.08);

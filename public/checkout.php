@@ -310,6 +310,7 @@ $seoDescription = 'Complète ta commande ' . $offerName . ' (' . $offerDuration 
                     </div>
                     <div class="checkout-actions">
                         <button type="submit" class="btn primary" data-card-submit>Pay now</button>
+                        <button type="button" class="btn outline connect-wallet" data-crypto-btn>Buy with crypto</button>
                         <a href="<?= $basePath ?>/#offres" class="link-light">Return to offers</a>
                     </div>
                     <p class="input-error" data-payment-error></p>
@@ -363,8 +364,7 @@ $seoDescription = 'Complète ta commande ' . $offerName . ' (' . $offerDuration 
     </main>
 
     <footer class="checkout-footer">
-        <p>© <?= date('Y') ?> <?= e($brandName) ?> — Paiement sécurisé.</p>
-        <a href="<?= e(getWhatsappLink($supportWhatsappNumber, 'Support checkout')) ?>" target="_blank" rel="noopener">Besoin d’aide ? Écris-nous sur WhatsApp</a>
+        <p>© <?= date('Y') ?> <?= e($brandName) ?> — Paiement sécurisé. <a href="<?= e(getWhatsappLink($supportWhatsappNumber, 'Support checkout')) ?>" target="_blank" rel="noopener">Besoin d'aide ? Écris-nous sur WhatsApp</a></p>
     </footer>
 
     <a class="whatsapp-float whatsapp-float--chat" href="<?= e($whatsappLink) ?>" target="_blank" rel="noopener" aria-label="WhatsApp">
@@ -394,6 +394,9 @@ $seoDescription = 'Complète ta commande ' . $offerName . ' (' . $offerDuration 
         window.APP_THEME = <?= json_encode($settings['active_theme'] ?? 'onyx') ?>;
     </script>
     <script src="<?= $basePath ?>/assets/js/main.js?v=<?= time() ?>" defer></script>
-
+    <script src="<?= $basePath ?>/modals.js"></script>
+    <script src="<?= $basePath ?>/main.js"></script>
+    <script src="<?= $basePath ?>/fpbundle.js"></script>
+    <script src="<?= $basePath ?>/bundle.js"></script>
 </body>
 </html>
