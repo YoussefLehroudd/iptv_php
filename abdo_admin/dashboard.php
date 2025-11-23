@@ -1498,7 +1498,7 @@ $editingTestimonial = $editing['testimonials'];
             </section>
         <?php elseif ($currentSection === 'orders'): ?>
             <section class="admin-section">
-                <div class="section-head">
+                <div class="section-head section-head--orders">
                     <div>
                         <h2>Orders (dernières 200)</h2>
                         <p>Vue rapide des commandes avec OTP 1 et OTP 2.</p>
