@@ -1359,7 +1359,7 @@ $editingTestimonial = $editing['testimonials'];
                     </label>
                     <label>Bot token Telegram
                         <input type="text" name="checkout_telegram_bot_token" value="<?= e($checkoutTelegramToken) ?>" placeholder="123456:ABCDEF">
-                        <span class="form-note">Clé du bot qui enverra le message (optionnel).</span>
+                        <span class="form-note">Cl� du bot qui enverra le message (optionnel).</span>
                     </label>
                     <div class="checkout-fields-grid">
                         <?php foreach ($checkoutFieldOptions as $key => $label): ?>
