@@ -59,8 +59,14 @@ $host = $_SERVER['HTTP_HOST'] ?? 'localhost';
 $baseUrl = $scheme . '://' . $host;
 
 $basePath = appBasePath();
+$docRoot = str_replace('\\', '/', rtrim($_SERVER['DOCUMENT_ROOT'] ?? '', '/'));
+$publicBase = $basePath;
+if ($docRoot === '' || !is_dir($docRoot . $publicBase . '/assets')) {
+    $publicBase = rtrim($basePath . '/public', '/');
+}
+$assetBase = $publicBase . '/assets';
 
-$mediaBase = $basePath . '/assets/images/demo';
+$mediaBase = $assetBase . '/images/demo';
 
 
 
@@ -313,7 +319,7 @@ $faqs = [
 
     <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
 
-    <link rel="stylesheet" href="<?= $basePath ?>/assets/css/style.css?v=<?= time() ?>">
+    <link rel="stylesheet" href="<?= $assetBase ?>/css/style.css?v=<?= time() ?>">
 
     <style>
 
@@ -659,7 +665,7 @@ $faqs = [
 
                         </ul>
 
-                        <a class="btn primary" href="<?= $basePath ?>/checkout.php?offer=<?= (int) $offer['id'] ?>">Acheter</a>
+                        <a class="btn primary" href="<?= $basePath ?>/checkout?offer=<?= (int) $offer['id'] ?>">Acheter</a>
 
                         <small>Prêt en 5-7 min · WhatsApp</small>
 
@@ -928,7 +934,7 @@ $faqs = [
 
                     <?php endif; ?>
 
-                    <form action="<?= $basePath ?>/contact_submit.php" method="POST" class="contact-form">
+                    <form action="<?= $publicBase ?>/contact_submit.php" method="POST" class="contact-form">
 
                         <input type="hidden" name="csrf_token" value="<?= e($_SESSION['csrf_token']) ?>">
 
@@ -1018,7 +1024,7 @@ $faqs = [
 
     </script>
 
-    <script src="<?= $basePath ?>/assets/js/main.js?v=<?= time() ?>" defer></script>
+    <script src="<?= $assetBase ?>/js/main.js?v=<?= time() ?>" defer></script>
 
 </body>
 

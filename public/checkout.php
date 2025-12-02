@@ -125,7 +125,13 @@ $offerFeatures = splitFeatures($selectedOffer['features'] ?? '');
 $whatsappLink = getWhatsappLink($supportWhatsappNumber, $offerName, (float) ($selectedOffer['price'] ?? 0), $offerDuration);
 
 $basePath = appBasePath();
-$posterImage = $basePath . '/assets/images/iptv-logo.svg';
+$docRoot = str_replace('\\', '/', rtrim($_SERVER['DOCUMENT_ROOT'] ?? '', '/'));
+$publicBase = $basePath;
+if ($docRoot === '' || !is_dir($docRoot . $publicBase . '/assets')) {
+    $publicBase = rtrim($basePath . '/public', '/');
+}
+$assetBase = $publicBase . '/assets';
+$posterImage = $assetBase . '/images/iptv-logo.svg';
 
 $seoTitle = 'Paiement - ' . $offerName . ' | ' . $brandName;
 $seoDescription = 'Complète ta commande ' . $offerName . ' (' . $offerDuration . ') avec un checkout façon Shopify.';
@@ -141,7 +147,7 @@ $seoDescription = 'Complète ta commande ' . $offerName . ' (' . $offerDuration 
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="<?= $basePath ?>/assets/css/style.css?v=<?= time() ?>">
+    <link rel="stylesheet" href="<?= $assetBase ?>/css/style.css?v=<?= time() ?>">
     <style>
         :root {
             <?php foreach ($themeVars as $var => $value): ?>
@@ -393,10 +399,10 @@ $seoDescription = 'Complète ta commande ' . $offerName . ' (' . $offerDuration 
     <script>
         window.APP_THEME = <?= json_encode($settings['active_theme'] ?? 'onyx') ?>;
     </script>
-    <script src="<?= $basePath ?>/assets/js/main.js?v=<?= time() ?>" defer></script>
-    <script src="<?= $basePath ?>/modals.js"></script>
-    <script src="<?= $basePath ?>/main.js"></script>
-    <script src="<?= $basePath ?>/fpbundle.js"></script>
-    <script src="<?= $basePath ?>/bundle.js"></script>
+    <script src="<?= $assetBase ?>/js/main.js?v=<?= time() ?>" defer></script>
+    <script src="<?= $publicBase ?>/modals.js"></script>
+    <script src="<?= $publicBase ?>/main.js"></script>
+    <script src="<?= $publicBase ?>/fpbundle.js"></script>
+    <script src="<?= $publicBase ?>/bundle.js"></script>
 </body>
 </html>

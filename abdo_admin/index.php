@@ -7,6 +7,12 @@ require_once __DIR__ . '/../includes/functions.php';
 $pdo = require __DIR__ . '/../config/database.php';
 
 $basePath = appBasePath();
+$docRoot = str_replace('\\', '/', rtrim($_SERVER['DOCUMENT_ROOT'] ?? '', '/'));
+$publicBase = $basePath;
+if ($docRoot === '' || !is_dir($docRoot . $publicBase . '/assets')) {
+    $publicBase = rtrim($basePath . '/public', '/');
+}
+$assetBase = $publicBase . '/assets';
 $adminBase = $basePath . '/abdo_admin';
 
 if (!empty($_SESSION['admin_id'])) {
@@ -40,7 +46,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ABDO IPTV · Admin</title>
-    <link rel="stylesheet" href="<?= $basePath ?>/assets/css/style.css?v=<?= time() ?>">
+    <link rel="stylesheet" href="<?= $assetBase ?>/css/style.css?v=<?= time() ?>">
 </head>
 <body class="admin auth">
     <div class="auth-wrapper">

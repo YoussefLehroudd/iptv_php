@@ -8,6 +8,12 @@ $pdo = require __DIR__ . '/../config/database.php';
 requireAdmin();
 
 $basePath = appBasePath();
+$docRoot = str_replace('\\', '/', rtrim($_SERVER['DOCUMENT_ROOT'] ?? '', '/'));
+$publicBase = $basePath;
+if ($docRoot === '' || !is_dir($docRoot . $publicBase . '/assets')) {
+    $publicBase = rtrim($basePath . '/public', '/');
+}
+$assetBase = $publicBase . '/assets';
 $adminBase = $basePath . '/abdo_admin';
 
 $posterCategories = fetchAllAssoc($pdo, 'SELECT * FROM poster_categories ORDER BY label ASC');
@@ -832,7 +838,7 @@ $editingTestimonial = $editing['testimonials'];
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Panel ABDO IPTV</title>
-    <link rel="stylesheet" href="<?= $basePath ?>/assets/css/style.css?v=<?= time() ?>">
+    <link rel="stylesheet" href="<?= $assetBase ?>/css/style.css?v=<?= time() ?>">
     <style>
         /* Admin panel needs copy/paste + text selection */
         body.admin,

@@ -767,8 +767,20 @@ function formatCurrency(float $value): string
 
 function appBasePath(): string
 {
-    $scriptDir = str_replace('\\', '/', dirname($_SERVER['SCRIPT_NAME'] ?? ''));
+    // Prefer deriving from DOCUMENT_ROOT to avoid leaking filesystem paths in URLs (e.g., C:\xampp\htdocs\...)
+    $docRoot = str_replace('\\', '/', rtrim($_SERVER['DOCUMENT_ROOT'] ?? '', '/'));
+    $scriptDirFull = str_replace('\\', '/', dirname($_SERVER['SCRIPT_FILENAME'] ?? ''));
+
+    if ($docRoot !== '' && strpos($scriptDirFull, $docRoot) === 0) {
+        $scriptDir = substr($scriptDirFull, strlen($docRoot));
+    } else {
+        $scriptDir = str_replace('\\', '/', dirname($_SERVER['SCRIPT_NAME'] ?? ''));
+    }
+
+    $scriptDir = '/' . ltrim($scriptDir, '/');
+    $scriptDir = preg_replace('#/public$#', '', $scriptDir);
     $scriptDir = preg_replace('#/abdo_admin$#', '', $scriptDir);
+
     if ($scriptDir === '/' || $scriptDir === '\\') {
         return '';
     }
