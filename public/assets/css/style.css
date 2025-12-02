@@ -1366,7 +1366,9 @@ body.admin .section-head.section-head--orders button {
     appearance: none;
     -webkit-appearance: none;
     width: 18px;
-    height: 18px;
+    aspect-ratio: 1 / 1;
+    display: inline-grid;
+    place-items: center;
     border-radius: 50%;
     border: 2px solid rgba(255, 255, 255, 0.35);
     background: transparent;
@@ -1374,22 +1376,23 @@ body.admin .section-head.section-head--orders button {
     margin-right: 0.75rem;
     position: relative;
     cursor: pointer;
-    transition: border 0.2s ease;
+    transition: border 0.2s ease, box-shadow 0.2s ease;
 }
 
 .delivery-option input[type="radio"]::after {
     content: "";
-    position: absolute;
-    inset: 4px;
+    width: 8px;
+    height: 8px;
     border-radius: 50%;
     background: var(--accent);
-    transform: scale(0.5);
+    transform: scale(0);
     opacity: 0;
     transition: transform 0.2s ease, opacity 0.2s ease;
 }
 
 .delivery-option input[type="radio"]:checked {
     border-color: var(--accent);
+    box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.12);
 }
 
 .delivery-option input[type="radio"]:checked::after {
