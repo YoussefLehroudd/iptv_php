@@ -23,7 +23,7 @@ $themeVars = getActiveThemeVars($settings['active_theme'] ?? 'onyx');
 $brandTitleSetting = trim($settings['brand_title'] ?? '');
 $brandName = $brandTitleSetting !== '' ? $brandTitleSetting : ($config['brand_name'] ?? 'ABDO IPTV CANADA');
 $brandTaglineSetting = trim($settings['brand_tagline'] ?? '');
-$brandTagline = $brandTaglineSetting !== '' ? $brandTaglineSetting : 'Ultra IPTV · Canada';
+$brandTagline = $brandTaglineSetting !== '' ? $brandTaglineSetting : 'Ultra IPTV for Canada';
 $brandLogoDesktop = trim($settings['brand_logo_desktop'] ?? '');
 $brandLogoMobile = trim($settings['brand_logo_mobile'] ?? '');
 if ($brandLogoMobile === '' && $brandLogoDesktop !== '') {
@@ -72,7 +72,7 @@ $mediaBase = $assetBase . '/images/demo';
 
 $seoTitle = $settings['seo_title'] ?? 'ABDO IPTV Canada | Premium IPTV Accounts 2025';
 
-$seoDescription = $settings['seo_description'] ?? 'Serveurs IPTV ultra rapides pour Canada, paiement WhatsApp sécurisé et support 24/7.';
+$seoDescription = $settings['seo_description'] ?? 'Blazing-fast IPTV for Canada, secure WhatsApp payment, and 24/7 support.';
 
 $structuredData = [
 
@@ -145,13 +145,9 @@ $defaultSportEvents = [
 
 
 $defaultTestimonials = [
-
-    ['name' => 'Omar - Montréal', 'message' => 'Service rapide, zéro freeze pendant les matchs de NHL. Merci !', 'capture_url' => $mediaBase . '/wa-1.webp'],
-
-    ['name' => 'Nadia - Ottawa', 'message' => 'Support WhatsApp toujours présent, j\'ai renouvelé pour 12 mois direct.', 'capture_url' => $mediaBase . '/wa-2.webp'],
-
-    ['name' => 'Youssef - Québec', 'message' => 'Les VOD sont mis é jour tous les jours. Netflix, Apple TV+, tout y est.', 'capture_url' => $mediaBase . '/wa-3.webp'],
-
+    ['name' => 'Omar - Montreal', 'message' => 'Fast support, zero freeze during NHL games. Thanks!', 'capture_url' => $mediaBase . '/wa-1.webp'],
+    ['name' => 'Nadia - Ottawa', 'message' => 'WhatsApp support always there, I renewed for 12 months right away.', 'capture_url' => $mediaBase . '/wa-2.webp'],
+    ['name' => 'Youssef - Quebec', 'message' => 'VOD updated every day. Netflix, Apple TV+, everything is there.', 'capture_url' => $mediaBase . '/wa-3.webp'],
 ];
 
 
@@ -240,31 +236,20 @@ $deviceBadges = [
 
 
 $welcomeRotator = [
-
-    'CA · Salut Canada! Bienvenue chez ABDO IPTV.',
-
-    'EN · Welcome! Premium IPTV made for every Canadian province.',
-
-    'FR · Assistance rapide 24/7 en francais et en arabe.',
-
-    'ES · IPTV estable para nuestra comunidad latina en Canada.',
-
+    'CA - Hey Canada! Welcome to ABDO IPTV.',
+    'EN - Welcome! Premium IPTV built for every Canadian province.',
+    'FR - Fast support 24/7 in English, French, and Arabic.',
+    'ES - Reliable IPTV for our Canadian Latin community.',
 ];
 
 
 
 $faqs = [
-
-    ['question' => 'Quels appareils sont supportés ?', 'answer' => 'Toutes les Smart TV, Android/Apple, FireStick, MAG, PC/Mac et même ChromeCast.'],
-
-    ['question' => 'Combien de temps pour activer mon compte ?', 'answer' => 'Entre 5 et 7 minutes après validation de votre paiement WhatsApp.'],
-
-    ['question' => 'Puis-je tester avant d’acheter ?', 'answer' => 'Oui, demande un test 24h directement via le bouton WhatsApp.'],
-
-    ['question' => 'Combien de connexions simultanées ?', 'answer' => 'Chaque offre inclut 1 connexion, option multi-écrans disponible sur demande.'],
-
-    ['question' => 'Quels modes de paiement ?', 'answer' => 'Interac, virement bancaire, crypto USDT ou PayPal selon disponibilité.'],
-
+    ['question' => 'Which devices are supported?', 'answer' => 'All Smart TVs, Android/Apple, FireStick, MAG, PC/Mac and even Chromecast.'],
+    ['question' => 'How long to activate my account?', 'answer' => 'Between 5 and 7 minutes after your WhatsApp payment is validated.'],
+    ['question' => 'Can I test before buying?', 'answer' => 'Yes, ask for a 24h test directly via the WhatsApp button.'],
+    ['question' => 'How many simultaneous connections?', 'answer' => 'Each plan includes 1 connection; multi-screen is available on request.'],
+    ['question' => 'Which payment methods?', 'answer' => 'Interac, bank transfer, USDT crypto, or PayPal depending on availability.'],
 ];
 
 
@@ -273,7 +258,7 @@ $faqs = [
 
 <!DOCTYPE html>
 
-<html lang="fr">
+<html lang="en">
 
 <head>
 
@@ -285,7 +270,7 @@ $faqs = [
 
     <meta name="description" content="<?= e($seoDescription) ?>">
 
-    <meta name="keywords" content="IPTV Canada, IPTV Maroc, IPTV 2025, IPTV WhatsApp, IPTV Hostinger">
+    <meta name="keywords" content="IPTV Canada, IPTV streaming, IPTV WhatsApp, IPTV 2025, Premium IPTV">
 
     <meta name="author" content="<?= e($brandName) ?>">
 
@@ -383,7 +368,7 @@ $faqs = [
 
         <button class="menu-toggle" type="button" aria-expanded="false" aria-controls="siteNav" data-menu-toggle>
 
-            <span class="sr-only">Ouvrir le menu</span>
+            <span class="sr-only">Open menu</span>
 
             <span></span>
 
@@ -397,11 +382,11 @@ $faqs = [
 
             <nav id="siteNav" class="site-nav">
 
-                <a href="#top">Accueil</a>
+                <a href="#top">Home</a>
 
                 <a href="#offres">Pricing</a>
 
-                <a href="#movies">Films</a>
+                <a href="#movies">Movies</a>
 
                 <a href="#faq">FAQ</a>
 
@@ -429,7 +414,7 @@ $faqs = [
 
                 <h1><?= e($settings['hero_title'] ?? 'Best IPTV Service at an Affordable Price') ?></h1>
 
-                <p class="subtitle"><?= e($settings['hero_subtitle'] ?? 'Experience breathtaking 4K visuals, +40K chaînes & 54K VOD partout au Canada.') ?></p>
+                <p class="subtitle"><?= e($settings['hero_subtitle'] ?? 'Experience breathtaking 4K visuals, +40K channels & 54K VOD across Canada.') ?></p>
 
                 <?php if ($welcomeRotator): ?>
 
@@ -447,9 +432,9 @@ $faqs = [
 
                 <div class="hero-cta">
 
-                    <a class="btn primary" href="#offres"><?= e($settings['hero_cta'] ?? 'Voir les offres') ?></a>
+                    <a class="btn primary" href="#offres"><?= e($settings['hero_cta'] ?? 'See plans') ?></a>
 
-                    <a class="btn outline" href="<?= e(getWhatsappLink($supportWhatsappNumber, 'Je veux tester 24h')) ?>" target="_blank" rel="noopener">Tester 24h</a>
+                    <a class="btn outline" href="<?= e(getWhatsappLink($supportWhatsappNumber, 'I want a 24h test')) ?>" target="_blank" rel="noopener">Test 24h</a>
 
                 </div>
 
@@ -467,9 +452,9 @@ $faqs = [
                                 <span data-music-artist></span>
                             </div>
                             <div class="music-player__controls">
-                                <button type="button" class="icon-btn" data-music-prev title="Piste précédente">⏮</button>
-                                <button type="button" class="icon-btn primary" data-music-play title="Lecture / Pause">▶</button>
-                                <button type="button" class="icon-btn" data-music-next title="Piste suivante">⏭</button>
+                                <button type="button" class="icon-btn" data-music-prev title="Previous track">⏮</button>
+                                <button type="button" class="icon-btn primary" data-music-play title="Play / Pause">▶</button>
+                                <button type="button" class="icon-btn" data-music-next title="Next track">⏭</button>
                             </div>
                         </div>
                         <div class="music-player__progress">
@@ -601,7 +586,7 @@ $faqs = [
 
             <div class="provider-carousel" data-provider-carousel>
 
-                <button class="provider-nav prev" type="button" aria-label="Précédent" data-provider-nav="prev">‹</button>
+                <button class="provider-nav prev" type="button" aria-label="Previous" data-provider-nav="prev">‹</button>
 
                 <div class="provider-window">
 
@@ -621,7 +606,7 @@ $faqs = [
 
                 </div>
 
-                <button class="provider-nav next" type="button" aria-label="Suivant" data-provider-nav="next">›</button>
+                <button class="provider-nav next" type="button" aria-label="Next" data-provider-nav="next">›</button>
 
             </div>
 
@@ -633,11 +618,11 @@ $faqs = [
 
             <div class="section-head">
 
-                <p class="eyebrow">Choisis ton plan</p>
+                <p class="eyebrow">Choose your plan</p>
 
                 <h2>Choose Your <span>IPTV Plan</span></h2>
 
-                <p>Activation en 5-7 minutes · Support FR/AR/EN 24h/24</p>
+                <p>Activation in 5-7 minutes · Support EN/FR/AR 24/7</p>
 
             </div>
 
@@ -665,9 +650,9 @@ $faqs = [
 
                         </ul>
 
-                        <a class="btn primary" href="<?= $basePath ?>/checkout?offer=<?= (int) $offer['id'] ?>">Acheter</a>
+                        <a class="btn primary" href="<?= $basePath ?>/checkout?offer=<?= (int) $offer['id'] ?>">Buy now</a>
 
-                        <small>Prêt en 5-7 min · WhatsApp</small>
+                        <small>Ready in 5-7 min · WhatsApp</small>
 
                     </article>
 
@@ -685,13 +670,13 @@ $faqs = [
 
             $benefits = [
 
-                ['title' => 'Fast Reliable Servers', 'desc' => 'Serveurs 10Gb Montréal + anti-freeze AI.'],
+                ['title' => 'Fast Reliable Servers', 'desc' => '10Gb Montreal servers + anti-freeze AI.'],
 
                 ['title' => '4K / FHD Streaming', 'desc' => 'Compatible MAG, Android, Enigma, Apple TV, FireStick.'],
 
-                ['title' => 'Money Back Guarantee', 'desc' => 'Remboursé sous 10 jours si non satisfait.'],
+                ['title' => 'Money Back Guarantee', 'desc' => 'Refund within 10 days if you are not satisfied.'],
 
-                ['title' => 'Support 24/7', 'desc' => 'WhatsApp + email FR / AR / EN à toute heure.'],
+                ['title' => 'Support 24/7', 'desc' => 'WhatsApp + email EN / FR / AR at any time.'],
 
             ];
 
@@ -838,7 +823,7 @@ $faqs = [
 
                 <p class="eyebrow">FAQ</p>
 
-                <h2>Questions fréquentes</h2>
+                <h2>Frequently Asked Questions</h2>
 
             </div>
 
@@ -876,7 +861,7 @@ $faqs = [
 
             <div class="section-head">
 
-                <p class="eyebrow">Avis clients</p>
+                <p class="eyebrow">Customer reviews</p>
 
                 <h2>Hear from our satisfied customers</h2>
 
@@ -892,7 +877,7 @@ $faqs = [
 
                             <article class="slide testimonial">
 
-                                <img src="<?= e($testimonial['capture_url']) ?>" alt="Temoignage <?= e($testimonial['name']) ?>">
+                                <img src="<?= e($testimonial['capture_url']) ?>" alt="Testimonial <?= e($testimonial['name']) ?>">
 
                             </article>
 
@@ -922,15 +907,15 @@ $faqs = [
 
                 <div>
 
-                    <p class="eyebrow">Support express</p>
+                    <p class="eyebrow">Fast support</p>
 
                     <h2>Need help? Contact us</h2>
 
-                    <p>WhatsApp direct ou via ce formulaire, réponse ultra rapide.</p>
+                    <p>Reach us on WhatsApp or through this form for a quick reply.</p>
 
                     <?php if ($contactSuccess): ?>
 
-                        <div class="alert success" data-flash>Merci ! Message bien reçu.</div>
+                        <div class="alert success" data-flash>Thanks! Message received.</div>
 
                     <?php endif; ?>
 
@@ -938,15 +923,15 @@ $faqs = [
 
                         <input type="hidden" name="csrf_token" value="<?= e($_SESSION['csrf_token']) ?>">
 
-                        <label>Nom complet<input type="text" name="full_name" required></label>
+                        <label>Full name<input type="text" name="full_name" required></label>
 
                         <label>Email<input type="email" name="email" required></label>
 
-                        <label>Téléphone<input type="text" name="phone"></label>
+                        <label>Phone<input type="text" name="phone"></label>
 
                         <label>Message<textarea name="message" rows="4" required></textarea></label>
 
-                        <button type="submit" class="btn primary">Envoyer</button>
+                        <button type="submit" class="btn primary">Send</button>
 
                     </form>
 
@@ -964,7 +949,7 @@ $faqs = [
 
     <footer data-animate>
 
-        <p>© <?= date('Y') ?> <?= e($brandName) ?> · IPTV sécurisé Canada · All rights reserved.</p>
+        <p>© <?= date('Y') ?> <?= e($brandName) ?> · Secure IPTV Canada · All rights reserved.</p>
 
         <div class="footer-links">
 
@@ -990,7 +975,7 @@ $faqs = [
 
     </a>
 
-    <button class="whatsapp-float whatsapp-float--top" type="button" aria-label="Revenir en haut" data-scroll-top>
+    <button class="whatsapp-float whatsapp-float--top" type="button" aria-label="Back to top" data-scroll-top>
         <svg viewBox="0 0 24 24" role="img" aria-hidden="true">
             <path fill="currentColor" d="M5 15.5 12 8l7 7.5-1.4 1.4L12 10.8l-5.6 6.1z"/>
         </svg>
@@ -1029,6 +1014,24 @@ $faqs = [
 </body>
 
 </html>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

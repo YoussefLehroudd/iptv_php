@@ -1,5 +1,4 @@
 RewriteEngine On
-RewriteBase /
 
 # Allow direct access to admin panel and other real files
 RewriteRule ^(abdo_admin/.*)$ $1 [L]
@@ -7,7 +6,7 @@ RewriteRule ^(config/.*)$ $1 [L]
 RewriteRule ^(includes/.*)$ $1 [L]
 
 # Keep checkout accessible without exposing the .php extension
-RewriteRule ^checkout\.php$ /checkout [L,R=301]
+RewriteRule ^checkout\.php$ checkout [L,R=301]
 RewriteRule ^checkout/?$ public/checkout.php [L,QSA]
 
 # Serve everything else from the public directory when the project root is the DocumentRoot

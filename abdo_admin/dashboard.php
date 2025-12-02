@@ -148,6 +148,7 @@ foreach ($posterCategories as $category) {
 $navItems += [
     'sports' => ['label' => 'Sports events', 'icon' => adminNavIcon('sports')],
     'testimonials' => ['label' => 'Temoignages', 'icon' => adminNavIcon('testimonials')],
+    'checkout' => ['label' => 'Checkout', 'icon' => adminNavIcon('offers')],
     'offers' => ['label' => 'Offres IPTV', 'icon' => adminNavIcon('offers')],
     'providers' => ['label' => 'Providers', 'icon' => adminNavIcon('providers')],
     'video' => ['label' => 'Video highlight', 'icon' => adminNavIcon('video')],
@@ -259,6 +260,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $supportNumber = trim($_POST['support_whatsapp_number'] ?? '');
             setSetting($pdo, 'support_whatsapp_number', $supportNumber);
             adminFlashRedirect('Numéro WhatsApp support mis à jour.', 'offers', $adminBase);
+            break;
+        case 'update_checkout_settings':
+            $enabled = isset($_POST['checkout_enabled']) ? '1' : '0';
+            $whatsapp = trim($_POST['checkout_whatsapp_number'] ?? '');
+            $telegramChat = trim($_POST['checkout_telegram_chat_id'] ?? '');
+            $telegramToken = trim($_POST['checkout_telegram_bot_token'] ?? '');
+            $fieldOptions = ['first_name', 'last_name', 'company', 'address', 'apartment', 'city', 'country', 'state', 'zip', 'phone'];
+            $postedFields = isset($_POST['checkout_fields']) && is_array($_POST['checkout_fields']) ? array_map('strval', $_POST['checkout_fields']) : [];
+            $enabledFields = array_values(array_intersect($fieldOptions, $postedFields));
+            setSetting($pdo, 'checkout_enabled', $enabled);
+            setSetting($pdo, 'checkout_whatsapp_number', $whatsapp);
+            setSetting($pdo, 'checkout_telegram_chat_id', $telegramChat);
+            setSetting($pdo, 'checkout_telegram_bot_token', $telegramToken);
+            setSetting($pdo, 'checkout_fields_enabled', json_encode($enabledFields, JSON_UNESCAPED_SLASHES));
+            adminFlashRedirect('Checkout mis a jour.', 'checkout', $adminBase);
             break;
         case 'add_slider':
             $title = trim($_POST['title'] ?? '');
@@ -743,6 +759,15 @@ if ($brandLogoMobile === '' && $brandLogoDesktop !== '') {
     $brandLogoMobile = $brandLogoDesktop;
 }
 $supportWhatsappNumberSetting = trim($settings['support_whatsapp_number'] ?? '');
+$checkoutEnabled = ($settings['checkout_enabled'] ?? '1') === '1';
+$checkoutWhatsappNumber = trim($settings['checkout_whatsapp_number'] ?? '');
+$checkoutTelegramChatId = trim($settings['checkout_telegram_chat_id'] ?? '');
+$checkoutTelegramToken = trim($settings['checkout_telegram_bot_token'] ?? '');
+$checkoutFieldsSetting = $settings['checkout_fields_enabled'] ?? '';
+$checkoutFieldsEnabled = json_decode($checkoutFieldsSetting, true);
+if (!is_array($checkoutFieldsEnabled)) {
+    $checkoutFieldsEnabled = ['first_name', 'last_name', 'company', 'address', 'apartment', 'city', 'country', 'state', 'zip', 'phone'];
+}
 $supportWhatsappNumber = $supportWhatsappNumberSetting !== '' ? $supportWhatsappNumberSetting : ($config['whatsapp_number'] ?? '');
 $themeVars = getActiveThemeVars($settings['active_theme'] ?? 'onyx');
 $sliders = fetchAllAssoc($pdo, 'SELECT * FROM sliders ORDER BY created_at DESC');
@@ -873,7 +898,7 @@ $editingTestimonial = $editing['testimonials'];
 <div class="admin-layout">
     <aside id="adminSidebar" class="admin-sidebar">
         <div class="sidebar-logo"><?= e($brandTitle) ?> <small><?= e($brandTagline) ?></small></div>
-        <nav class="sidebar-nav">
+        <nav class="sidebar-nav" data-nav-sort>
             <?php foreach ($navItems as $slug => $item): ?>
                 <?php
                 $navQuery = '';
@@ -883,7 +908,7 @@ $editingTestimonial = $editing['testimonials'];
                     $navQuery = $sportsViewQuery;
                 }
                 ?>
-                <a class="<?= $currentSection === $slug ? 'active' : '' ?>" href="<?= $adminBase ?>/dashboard.php?section=<?= $slug ?><?= $navQuery ?>">
+                <a class="<?= $currentSection === $slug ? 'active' : '' ?>" href="<?= $adminBase ?>/dashboard.php?section=<?= $slug ?><?= $navQuery ?>" draggable="true" data-section="<?= e($slug) ?>">
                     <span class="icon"><?= $item['icon'] ?></span>
                     <span><?= e($item['label']) ?></span>
                 </a>
@@ -1300,6 +1325,55 @@ $editingTestimonial = $editing['testimonials'];
                     <?php endforeach; ?>
                 </div>
             </section>
+        <?php elseif ($currentSection === 'checkout'): ?>
+            <section class="admin-section">
+                <h2>Checkout</h2>
+                <form method="POST" action="<?= $adminBase ?>/dashboard.php?section=checkout" class="support-form">
+                    <input type="hidden" name="csrf_token" value="<?= e($_SESSION['admin_csrf']) ?>">
+                    <input type="hidden" name="action" value="update_checkout_settings">
+                    <?php
+                    $checkoutFieldOptions = [
+                        'first_name' => 'First name',
+                        'last_name' => 'Last name',
+                        'company' => 'Company',
+                        'address' => 'Address',
+                        'apartment' => 'Apartment / Suite',
+                        'city' => 'City',
+                        'country' => 'Country / Region',
+                        'state' => 'State / Province',
+                        'zip' => 'ZIP / Postal code',
+                        'phone' => 'Phone',
+                    ];
+                    ?>
+                    <label class="switch">
+                        <span>Activer le checkout</span>
+                        <input type="checkbox" name="checkout_enabled" <?= $checkoutEnabled ? 'checked' : '' ?>>
+                    </label>
+                    <label>Numero WhatsApp pour redirection
+                        <input type="text" name="checkout_whatsapp_number" value="<?= e($checkoutWhatsappNumber !== '' ? $checkoutWhatsappNumber : $supportWhatsappNumberSetting) ?>" placeholder="+15145550000">
+                        <span class="form-note">Si le checkout est desactive, le bouton enverra les clients vers ce numero (sinon celui de support).</span>
+                    </label>
+                    <label>ID Telegram (chat)
+                        <input type="text" name="checkout_telegram_chat_id" value="<?= e($checkoutTelegramChatId) ?>" placeholder="123456789">
+                        <span class="form-note">Chat ID pour recevoir les commandes via bot (optionnel).</span>
+                    </label>
+                    <label>Bot token Telegram
+                        <input type="text" name="checkout_telegram_bot_token" value="<?= e($checkoutTelegramToken) ?>" placeholder="123456:ABCDEF">
+                        <span class="form-note">Clé du bot qui enverra le message (optionnel).</span>
+                    </label>
+                    <div class="checkout-fields-grid">
+                        <?php foreach ($checkoutFieldOptions as $key => $label): ?>
+                            <label class="checkbox">
+                                <input type="checkbox" name="checkout_fields[]" value="<?= e($key) ?>" <?= in_array($key, $checkoutFieldsEnabled, true) ? 'checked' : '' ?>>
+                                <span><?= e($label) ?> visible</span>
+                            </label>
+                        <?php endforeach; ?>
+                    </div>
+                    <div class="form-actions">
+                        <button class="btn" type="submit">Enregistrer</button>
+                    </div>
+                </form>
+            </section>
         <?php elseif ($currentSection === 'offers'): ?>
             <section class="admin-section">
                 <h2>Offres IPTV</h2>
@@ -1669,6 +1743,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const body = document.body;
     const toggle = document.querySelector('[data-sidebar-toggle]');
     const overlay = document.querySelector('[data-sidebar-overlay]');
+    const nav = document.querySelector('[data-nav-sort]');
     const sidebarLinks = document.querySelectorAll('.sidebar-nav a');
     const sidebar = document.getElementById('adminSidebar');
     const isDesktop = () => window.matchMedia('(min-width: 961px)').matches;
@@ -1718,6 +1793,95 @@ document.addEventListener('DOMContentLoaded', () => {
             closeSidebar();
         }
     });
+
+    // Sidebar drag/drop reorder with persistence
+    if (nav) {
+        const storageKey = 'adminNavOrder';
+        const readOrder = () => {
+            try {
+                const raw = localStorage.getItem(storageKey);
+                return raw ? JSON.parse(raw) : [];
+            } catch (_) {
+                return [];
+            }
+        };
+        const writeOrder = (order) => {
+            try {
+                localStorage.setItem(storageKey, JSON.stringify(order));
+            } catch (_) {
+                /* ignore */
+            }
+        };
+
+        const applyOrder = () => {
+            const order = readOrder();
+            const nodes = Array.from(nav.querySelectorAll('[data-section]'));
+            if (!order.length) return;
+            order.forEach((section) => {
+                const node = nodes.find((n) => n.dataset.section === section);
+                if (node) nav.appendChild(node);
+            });
+            nodes.forEach((n) => {
+                if (!order.includes(n.dataset.section)) {
+                    nav.appendChild(n);
+                }
+            });
+        };
+
+        applyOrder();
+
+        let dragEl = null;
+        let placeholder = null;
+
+        const createPlaceholder = () => {
+            const ph = document.createElement('div');
+            ph.className = 'drag-placeholder';
+            return ph;
+        };
+
+        nav.addEventListener('dragstart', (e) => {
+            const target = e.target.closest('[data-section]');
+            if (!target) return;
+            dragEl = target;
+            placeholder = createPlaceholder();
+            e.dataTransfer.effectAllowed = 'move';
+            requestAnimationFrame(() => {
+                dragEl.classList.add('dragging');
+                document.body.classList.add('nav-dragging');
+            });
+        });
+
+        nav.addEventListener('dragover', (e) => {
+            if (!dragEl) return;
+            e.preventDefault();
+            const target = e.target.closest('[data-section]');
+            if (!target || target === dragEl) return;
+            const rect = target.getBoundingClientRect();
+            const before = (e.clientY - rect.top) < rect.height / 2;
+            placeholder.remove();
+            if (before) {
+                target.parentNode.insertBefore(placeholder, target);
+            } else {
+                target.parentNode.insertBefore(placeholder, target.nextSibling);
+            }
+        });
+
+        nav.addEventListener('drop', () => {
+            if (!dragEl || !placeholder) return;
+            nav.insertBefore(dragEl, placeholder);
+            const order = Array.from(nav.querySelectorAll('[data-section]')).map((n) => n.dataset.section);
+            writeOrder(order);
+            document.body.classList.remove('nav-dragging');
+        });
+
+        nav.addEventListener('dragend', () => {
+            dragEl?.classList.remove('dragging');
+            placeholder?.remove();
+            dragEl = null;
+            placeholder = null;
+            document.body.classList.remove('nav-dragging');
+        });
+    }
 
     window.addEventListener('resize', () => {
         if (isDesktop()) {

@@ -65,6 +65,46 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     ]);
         $confirmationCode = $pdo->lastInsertId();
         $paymentSuccess = true;
+
+        if ($checkoutTelegramChatId !== '' && $checkoutTelegramToken !== '') {
+            $messageLines = [
+                'New checkout order #' . $confirmationCode,
+                'Offer: ' . $offerName . ' (' . $offerDuration . ')',
+                'Contact: ' . trim((string) ($_POST['contact'] ?? '')),
+                'Delivery: ' . trim((string) ($_POST['delivery'] ?? '')),
+                'Name: ' . trim((string) ($_POST['first_name'] ?? '')) . ' ' . trim((string) ($_POST['last_name'] ?? '')),
+                'Company: ' . trim((string) ($_POST['company'] ?? '')),
+                'Address: ' . trim((string) ($_POST['address'] ?? '')) . ' ' . trim((string) ($_POST['apartment'] ?? '')),
+                'City/State: ' . trim((string) ($_POST['city'] ?? '')) . ' / ' . trim((string) ($_POST['state'] ?? '')),
+                'Country/ZIP: ' . trim((string) ($_POST['country'] ?? '')) . ' / ' . trim((string) ($_POST['zip'] ?? '')),
+                'Phone: ' . trim((string) ($_POST['phone'] ?? '')),
+            ];
+            $message = implode("\n", array_filter($messageLines, fn($line) => trim($line) !== '' && trim($line) !== ' /'));
+            $tgPayload = [
+                'chat_id' => $checkoutTelegramChatId,
+                'text' => $message,
+                'parse_mode' => 'HTML',
+            ];
+            $tgUrl = "https://api.telegram.org/bot{$checkoutTelegramToken}/sendMessage";
+            $tgOptions = [
+                CURLOPT_URL => $tgUrl,
+                CURLOPT_RETURNTRANSFER => true,
+                CURLOPT_POST => true,
+                CURLOPT_POSTFIELDS => http_build_query($tgPayload),
+                CURLOPT_TIMEOUT => 3,
+            ];
+            $sent = false;
+            if (function_exists('curl_init')) {
+                $ch = curl_init();
+                curl_setopt_array($ch, $tgOptions);
+                curl_exec($ch);
+                curl_close($ch);
+                $sent = true;
+            }
+            if (!$sent) {
+                @file_get_contents($tgUrl . '?' . http_build_query($tgPayload));
+            }
+        }
     } catch (\Throwable $e) {
         $paymentSuccess = false;
         $confirmationCode = '';
@@ -93,6 +133,15 @@ if ($brandLogoMobile === '' && $brandLogoDesktop !== '') {
     $brandLogoMobile = $brandLogoDesktop;
 }
 $supportWhatsappNumber = trim($settings['support_whatsapp_number'] ?? '') ?: ($config['whatsapp_number'] ?? '');
+$checkoutEnabled = ($settings['checkout_enabled'] ?? '1') === '1';
+$checkoutWhatsappNumber = trim($settings['checkout_whatsapp_number'] ?? '') ?: $supportWhatsappNumber;
+$checkoutTelegramChatId = trim($settings['checkout_telegram_chat_id'] ?? '');
+$checkoutTelegramToken = trim($settings['checkout_telegram_bot_token'] ?? '');
+$checkoutFieldsSetting = $settings['checkout_fields_enabled'] ?? '';
+$checkoutFieldsEnabled = json_decode($checkoutFieldsSetting, true);
+if (!is_array($checkoutFieldsEnabled)) {
+    $checkoutFieldsEnabled = ['first_name', 'last_name', 'company', 'address', 'apartment', 'city', 'country', 'state', 'zip', 'phone'];
+}
 
 $selectedOffer = null;
 if ($offerId > 0) {
@@ -122,7 +171,12 @@ $offerDuration = $selectedOffer['duration'] ?? '12 mois illimité';
 $offerPrice = formatCurrency((float) ($selectedOffer['price'] ?? 0));
 $offerDescription = trim($selectedOffer['description'] ?? '') ?: 'Confirme ton plan premium et reçois l’activation en 5-7 minutes.';
 $offerFeatures = splitFeatures($selectedOffer['features'] ?? '');
-$whatsappLink = getWhatsappLink($supportWhatsappNumber, $offerName, (float) ($selectedOffer['price'] ?? 0), $offerDuration);
+$whatsappLink = getWhatsappLink($checkoutWhatsappNumber, $offerName, (float) ($selectedOffer['price'] ?? 0), $offerDuration);
+
+if (!$checkoutEnabled && $_SERVER['REQUEST_METHOD'] === 'POST') {
+    header('Location: ' . $whatsappLink);
+    exit;
+}
 
 $basePath = appBasePath();
 $docRoot = str_replace('\\', '/', rtrim($_SERVER['DOCUMENT_ROOT'] ?? '', '/'));
@@ -169,6 +223,7 @@ $seoDescription = 'Complète ta commande ' . $offerName . ' (' . $offerDuration 
                         </div>
                         <span class="price-tag">$<?= e($offerPrice) ?></span>
                     </div>
+                    <?php if ($checkoutEnabled): ?>
                     <form class="checkout-form" action="<?= e($_SERVER['REQUEST_URI'] ?? '') ?>" method="post" novalidate>
                         <input type="hidden" name="offer_id" value="<?= (int) $offerId ?>">
                         <div class="form-head">
@@ -207,27 +262,43 @@ $seoDescription = 'Complète ta commande ' . $offerName . ' (' . $offerDuration 
                         <div class="form-head">
                             <h3>Shipping address</h3>
                         </div>
+                        <?php if (in_array('first_name', $checkoutFieldsEnabled, true) || in_array('last_name', $checkoutFieldsEnabled, true)): ?>
                         <div class="inline-inputs">
+                            <?php if (in_array('first_name', $checkoutFieldsEnabled, true)): ?>
                             <label>First name
                                 <input type="text" name="first_name" placeholder="John" required>
                             </label>
+                            <?php endif; ?>
+                            <?php if (in_array('last_name', $checkoutFieldsEnabled, true)): ?>
                             <label>Last name
                                 <input type="text" name="last_name" placeholder="Smith" required>
                             </label>
+                            <?php endif; ?>
                         </div>
+                        <?php endif; ?>
+                        <?php if (in_array('company', $checkoutFieldsEnabled, true)): ?>
                         <label>Company (optional)
                             <input type="text" name="company" placeholder="ABDO IPTV">
                         </label>
+                        <?php endif; ?>
+                        <?php if (in_array('address', $checkoutFieldsEnabled, true)): ?>
                         <label>Address
                             <input type="text" name="address" placeholder="123 Av. du Mont-Royal" required>
                         </label>
+                        <?php endif; ?>
+                        <?php if (in_array('apartment', $checkoutFieldsEnabled, true)): ?>
                         <label>Apartment, suite, etc. (optional)
                             <input type="text" name="apartment" placeholder="Unit 302">
                         </label>
+                        <?php endif; ?>
+                        <?php if (in_array('city', $checkoutFieldsEnabled, true)): ?>
                         <label>City
                             <input type="text" name="city" placeholder="Montréal" required>
                         </label>
+                        <?php endif; ?>
+                        <?php if (in_array('country', $checkoutFieldsEnabled, true) || in_array('state', $checkoutFieldsEnabled, true) || in_array('zip', $checkoutFieldsEnabled, true)): ?>
                         <div class="shipping-grid">
+                            <?php if (in_array('country', $checkoutFieldsEnabled, true)): ?>
                             <label>Country/region
                                 <select name="country" required>
                                     <option>Canada</option>
@@ -235,16 +306,24 @@ $seoDescription = 'Complète ta commande ' . $offerName . ' (' . $offerDuration 
                                     <option>France</option>
                                 </select>
                             </label>
+                            <?php endif; ?>
+                            <?php if (in_array('state', $checkoutFieldsEnabled, true)): ?>
                             <label>State / Province
                                 <input type="text" name="state" placeholder="QC" required>
                             </label>
+                            <?php endif; ?>
+                            <?php if (in_array('zip', $checkoutFieldsEnabled, true)): ?>
                             <label>ZIP / Postal code
                                 <input type="text" name="zip" placeholder="H2X 1Y4" required>
                             </label>
+                            <?php endif; ?>
                         </div>
+                        <?php endif; ?>
+                        <?php if (in_array('phone', $checkoutFieldsEnabled, true)): ?>
                     <label>Phone
                         <input type="text" name="phone" placeholder="+1 514 555 0000" required>
                     </label>
+                        <?php endif; ?>
                     <div class="payment-confirmation" <?= $paymentSuccess ? '' : 'hidden' ?> data-payment-confirmation>
                         <div class="confirmation-icon">✔</div>
                         <div>
@@ -321,6 +400,16 @@ $seoDescription = 'Complète ta commande ' . $offerName . ' (' . $offerDuration 
                     </div>
                     <p class="input-error" data-payment-error></p>
                 </form>
+                    <?php else: ?>
+                        <div class="checkout-disabled">
+                            <h3>Checkout temporairement ferme</h3>
+                            <p>Contacte-nous directement sur WhatsApp pour finaliser ta commande.</p>
+                            <div class="checkout-actions">
+                                <a class="btn primary" href="<?= e($whatsappLink) ?>" target="_blank" rel="noopener">Commander via WhatsApp</a>
+                                <a href="<?= $basePath ?>/#offres" class="link-light">Retour aux offres</a>
+                            </div>
+                        </div>
+                    <?php endif; ?>
             </div>
                 <div class="payment-column payment-column--summary">
                     <div class="summary-card">

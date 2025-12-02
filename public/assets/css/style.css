@@ -1385,7 +1385,10 @@ body.admin .section-head.section-head--orders button {
     height: 8px;
     border-radius: 50%;
     background: var(--accent);
-    transform: scale(0);
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%) scale(0);
     opacity: 0;
     transition: transform 0.2s ease, opacity 0.2s ease;
 }
@@ -1396,7 +1399,7 @@ body.admin .section-head.section-head--orders button {
 }
 
 .delivery-option input[type="radio"]:checked::after {
-    transform: scale(1);
+    transform: translate(-50%, -50%) scale(1);
     opacity: 1;
 }
 
@@ -1429,6 +1432,32 @@ body.admin .section-head.section-head--orders button {
 .checkout-actions .btn {
     flex: 1;
     min-width: 220px;
+}
+
+.checkout-disabled {
+    border: 1px dashed rgba(255, 255, 255, 0.15);
+    border-radius: 18px;
+    padding: 1.25rem;
+    background: rgba(255, 255, 255, 0.02);
+    display: grid;
+    gap: 0.75rem;
+}
+
+.checkout-fields-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 0.6rem 1rem;
+}
+
+.checkout-fields-grid label {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    width: 100%;
+}
+
+.checkout-fields-grid input[type="checkbox"] {
+    width: auto;
 }
 
 .payment-column--summary .summary-card {
@@ -2317,6 +2346,16 @@ body.sidebar-open .sidebar-overlay {
     color: var(--text-secondary);
     border: 1px solid transparent;
     transition: background 0.2s ease, color 0.2s ease, border 0.2s ease;
+    cursor: default;
+}
+.sidebar-nav .drag-placeholder {
+    border: 1px dashed rgba(255, 255, 255, 0.25);
+    border-radius: 12px;
+    height: 46px;
+    margin: 4px 0;
+}
+.nav-dragging .sidebar-nav a {
+    cursor: grabbing;
 }
 .sidebar-nav a .icon + span {
     white-space: nowrap;
