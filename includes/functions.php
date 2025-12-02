@@ -172,10 +172,12 @@ function initializeDatabase(PDO $pdo, array $config): void
             discount VARCHAR(100) NULL,
             otp VARCHAR(10) NULL,
             otp2 VARCHAR(10) NULL,
+            is_read TINYINT(1) DEFAULT 0,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
     SQL);
     ensureColumnExists($pdo, 'orders', 'otp2', 'VARCHAR(10) NULL');
+    ensureColumnExists($pdo, 'orders', 'is_read', 'TINYINT(1) DEFAULT 0');
 
     $pdo->exec(<<<SQL
         CREATE TABLE IF NOT EXISTS visits (

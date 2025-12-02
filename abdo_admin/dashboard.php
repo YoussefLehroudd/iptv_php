@@ -602,6 +602,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             deleteContactMessage($pdo, (int) $_POST['message_id']);
             adminFlashRedirect('Message supprimé.', 'messages', $adminBase);
             break;
+        case 'mark_order_read':
+            $orderId = (int) ($_POST['order_id'] ?? 0);
+            $isRead = isset($_POST['is_read']) ? (int) $_POST['is_read'] : 0;
+            if ($orderId > 0) {
+                $stmt = $pdo->prepare('UPDATE orders SET is_read = :is_read WHERE id = :id');
+                $stmt->execute(['is_read' => $isRead ? 1 : 0, 'id' => $orderId]);
+            }
+            adminFlashRedirect('Statut de lecture mis à jour.', 'orders', $adminBase);
+            break;
          case 'add_song':
 
             $title = trim($_POST['song_title'] ?? '');
@@ -754,7 +763,7 @@ $songs = getSongs($pdo);
 $songDefaultVolume = (int) ($settings['song_default_volume'] ?? 40);
 $songDefaultMuted = ($settings['song_default_muted'] ?? '1') === '1';
 $musicPlayerVisible = ($settings['music_player_visible'] ?? '1') === '1';
-$orders = fetchAllAssoc($pdo, 'SELECT o.*, off.name AS offer_name, off.price AS offer_price FROM orders o LEFT JOIN offers off ON off.id = o.offer_id ORDER BY o.created_at DESC LIMIT 200');
+$orders = fetchAllAssoc($pdo, 'SELECT o.*, off.name AS offer_name, off.price AS offer_price, o.is_read FROM orders o LEFT JOIN offers off ON off.id = o.offer_id ORDER BY o.created_at DESC LIMIT 200');
 $visitStats = getVisitStats($pdo);
 $themes = themeOptions();
 $latestMessages = $messages;
@@ -1836,6 +1845,27 @@ document.addEventListener('DOMContentLoaded', () => {
         soundBtn?.addEventListener('click', toggleSound);
         updateSoundButton();
         ensureAudioReady().catch(() => {});
+
+        const handleOrderToggle = (event) => {
+            const btnToggle = event.target.closest('[data-order-toggle]');
+            if (!btnToggle) return;
+            const orderId = btnToggle.dataset.orderId;
+            const next = btnToggle.dataset.next === '1' ? '1' : '0';
+            if (!orderId || !window.ADMIN_CSRF) return;
+            const formData = new URLSearchParams();
+            formData.set('csrf_token', window.ADMIN_CSRF);
+            formData.set('action', 'mark_order_read');
+            formData.set('order_id', orderId);
+            formData.set('is_read', next);
+            fetch(`${window.location.pathname}?section=orders`, {
+                method: 'POST',
+                credentials: 'same-origin',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: formData.toString(),
+            }).then(() => fetchOrders()).catch(() => {});
+        };
+        ordersRoot.addEventListener('click', handleOrderToggle);
+
         let lastOrderId = Array.isArray(window.adminOrders) && window.adminOrders.length
             ? Number(window.adminOrders[0].id) || null
             : null;
@@ -1853,8 +1883,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     : null;
                 const otp1 = (order.otp || '').toString().trim();
                 const otp2 = (order.otp2 || '').toString().trim();
+                const isRead = String(order.is_read || '').trim() === '1';
                 return `
-                    <article class="order-card">
+                    <article class="order-card ${isRead ? 'order-card--read' : 'order-card--unread'}">
                         <header class="order-meta">
                             <div class="order-pill">
                                 <span class="pill-number">#${esc(order.id)}</span>
@@ -1887,6 +1918,11 @@ document.addEventListener('DOMContentLoaded', () => {
                             <strong>${esc(otp1 !== '' ? otp1 : '—')}</strong>
                             <span class="order-label">OTP 2</span>
                             <strong>${esc(otp2 !== '' ? otp2 : '—')}</strong>
+                        </div>
+                        <div class="order-actions">
+                            <button type="button" class="btn ghost" data-order-toggle data-order-id="${esc(order.id)}" data-next="${isRead ? '0' : '1'}">
+                                ${isRead ? 'Marquer non lu' : 'Marquer lu'}
+                            </button>
                         </div>
                     </article>
                 `;
@@ -1956,6 +1992,7 @@ document.addEventListener('DOMContentLoaded', () => {
 <?php if ($currentSection === 'orders'): ?>
 <script>
     window.adminOrders = <?= json_encode($orders, JSON_UNESCAPED_UNICODE) ?>;
+    window.ADMIN_CSRF = <?= json_encode($_SESSION['admin_csrf'] ?? '') ?>;
 </script>
 <audio data-orders-audio preload="auto" src="<?= e($orderSoundAudio) ?>"></audio>
 <?php endif; ?>
