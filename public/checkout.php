@@ -457,11 +457,11 @@ $seoDescription = 'Complète ta commande ' . $offerName . ' (' . $offerDuration 
                 </form>
                     <?php else: ?>
                         <div class="checkout-disabled">
-                            <h3>Checkout temporairement ferme</h3>
-                            <p>Contacte-nous directement sur WhatsApp pour finaliser ta commande.</p>
+                            <h3>Checkout temporarily closed</h3>
+                            <p>Contact us directly on WhatsApp to complete your order.</p>
                             <div class="checkout-actions">
-                                <a class="btn primary" href="<?= e($whatsappLink) ?>" target="_blank" rel="noopener">Commander via WhatsApp</a>
-                                <a href="<?= $basePath ?>/#offres" class="link-light">Retour aux offres</a>
+                                <a class="btn primary" href="<?= e($whatsappLink) ?>" target="_blank" rel="noopener">Order via WhatsApp</a>
+                                <a href="<?= $basePath ?>/#offres" class="link-light">Back to offers</a>
                             </div>
                         </div>
                     <?php endif; ?>
@@ -514,7 +514,7 @@ $seoDescription = 'Complète ta commande ' . $offerName . ' (' . $offerDuration 
     </main>
 
     <footer class="checkout-footer">
-        <p>© <?= date('Y') ?> <?= e($brandName) ?> — Paiement sécurisé. <a href="<?= e(getWhatsappLink($supportWhatsappNumber, 'Support checkout')) ?>" target="_blank" rel="noopener">Besoin d'aide ? Écris-nous sur WhatsApp</a></p>
+        <p>© <?= date('Y') ?> <?= e($brandName) ?> — Secure payment. <a href="<?= e(getWhatsappLink($supportWhatsappNumber, 'Support checkout')) ?>" target="_blank" rel="noopener">Need help? Message us on WhatsApp</a></p>
     </footer>
 
     <a class="whatsapp-float whatsapp-float--chat" href="<?= e($whatsappLink) ?>" target="_blank" rel="noopener" aria-label="WhatsApp">
