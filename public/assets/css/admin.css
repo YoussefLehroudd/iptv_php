@@ -3927,4 +3927,90 @@ body.admin .order-actions {
     }
 }
 
+/* Override admin switches to a simpler, clearer off/on state */
+.checkbox-inline {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.55rem;
+}
+
+.checkbox-inline input[type="checkbox"] {
+    appearance: auto;
+    -webkit-appearance: checkbox;
+    width: auto;
+    height: auto;
+    margin: 0;
+    border: none;
+    background: transparent;
+    position: static;
+    cursor: pointer;
+}
+
+.checkbox-inline input[type="checkbox"]::after {
+    content: none;
+}
+
+.checkbox-inline input[type="checkbox"]:hover {
+    border-color: inherit;
+}
+
+.checkbox-inline input[type="checkbox"]:checked {
+    background: transparent;
+    border-color: inherit;
+}
+
+.checkbox-inline input[type="checkbox"]:checked::after {
+    content: none;
+}
+
+.checkbox-inline input[type="checkbox"]:focus-visible {
+    outline: 2px solid rgba(143, 108, 243, 0.55);
+    outline-offset: 2px;
+}
+
+/* Reset to simple native checkboxes when needed */
+.checkbox-inline,
+.checkbox-inline.switch {
+    align-items: center;
+}
+
+.checkbox-inline input[type="checkbox"],
+.checkbox-inline.switch input[type="checkbox"] {
+    appearance: auto;
+    -webkit-appearance: checkbox;
+    width: auto;
+    height: auto;
+    margin: 0;
+    border: none;
+    background: transparent;
+    position: static;
+    cursor: pointer;
+}
+
+.checkbox-inline input[type="checkbox"]::after,
+.checkbox-inline.switch input[type="checkbox"]::after {
+    content: none;
+}
+
+.checkbox-inline input[type="checkbox"]:hover,
+.checkbox-inline.switch input[type="checkbox"]:hover {
+    border-color: inherit;
+}
+
+.checkbox-inline input[type="checkbox"]:checked,
+.checkbox-inline.switch input[type="checkbox"]:checked {
+    background: transparent;
+    border-color: inherit;
+}
+
+.checkbox-inline input[type="checkbox"]:checked::after,
+.checkbox-inline.switch input[type="checkbox"]::after {
+    content: none;
+}
+
+.checkbox-inline input[type="checkbox"]:focus-visible,
+.checkbox-inline.switch input[type="checkbox"]:focus-visible {
+    outline: 2px solid rgba(143, 108, 243, 0.55);
+    outline-offset: 2px;
+}
 

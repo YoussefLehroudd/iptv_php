@@ -1179,7 +1179,7 @@ $editingTestimonial = $editing['testimonials'];
                     <label>Texte CTA
                         <input type="text" name="hero_cta" value="<?= e($settings['hero_cta'] ?? '') ?>">
                     </label>
-                    <label class="checkbox checkbox-inline">
+                    <label class="checkbox checkbox-inline switch">
                         <input type="checkbox" name="show_header_trial" value="1" <?= ($settings['show_header_trial'] ?? '1') === '1' ? 'checked' : '' ?>>
                         <span>Afficher le bouton "Free Trial" dans le header</span>
                     </label>
@@ -1251,10 +1251,10 @@ $editingTestimonial = $editing['testimonials'];
                     <input type="hidden" name="csrf_token" value="<?= e($_SESSION['admin_csrf']) ?>">
                     <input type="hidden" name="action" value="update_theme">
                     <?php foreach ($themes as $slug => $theme): ?>
-                        <label class="theme-option">
-                            <span><?= e($theme['label']) ?></span>
-                            <input type="radio" name="theme" value="<?= e($slug) ?>" <?= ($settings['active_theme'] ?? 'onyx') === $slug ? 'checked' : '' ?>>
-                        </label>
+                    <label class="theme-option">
+                        <span><?= e($theme['label']) ?></span>
+                        <input type="radio" name="theme" value="<?= e($slug) ?>" <?= ($settings['active_theme'] ?? 'onyx') === $slug ? 'checked' : '' ?>>
+                    </label>
                     <?php endforeach; ?>
                     <button class="btn" type="submit">Changer le thème</button>
                 </form>
@@ -1812,11 +1812,11 @@ $editingTestimonial = $editing['testimonials'];
                         <input type="range" name="song_default_volume" min="0" max="100" value="<?= (int) $songDefaultVolume ?>" data-song-volume-input>
                         <span class="form-note">Valeur actuelle : <strong data-song-volume-value><?= (int) $songDefaultVolume ?></strong></span>
                     </label>
-                    <label class="checkbox-inline">
+                    <label class="checkbox-inline switch">
                         <input type="checkbox" name="song_default_muted" value="1" <?= $songDefaultMuted ? 'checked' : '' ?>>
                         Demarrer en mode muet
                     </label>
-                    <label class="checkbox-inline">
+                    <label class="checkbox-inline switch">
                         <input type="checkbox" name="music_player_visible" value="1" <?= $musicPlayerVisible ? 'checked' : '' ?>>
                         Afficher le lecteur sur la page
                     </label>

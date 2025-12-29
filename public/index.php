@@ -41,6 +41,8 @@ $visitStats = getVisitStats($pdo);
 $songs = getSongs($pdo);
 $songDefaultVolume = (int) ($settings['song_default_volume'] ?? 40);
 $songDefaultMuted = ($settings['song_default_muted'] ?? '1') === '1';
+$musicPlayerVisible = ($settings['music_player_visible'] ?? '1') === '1';
+$showHeaderTrial = ($settings['show_header_trial'] ?? '1') === '1';
 $contactSuccess = isset($_GET['contact']) && $_GET['contact'] === 'success';
 $lang = 'en';
 if (isset($_GET['lang'])) {
@@ -475,7 +477,9 @@ $faqs = [
                 <button type="button" data-lang-switch="fr" class="<?= $lang === 'fr' ? 'active' : '' ?>">FR</button>
             </div>
 
-            <a class="btn primary header-cta" href="<?= e(getWhatsappLink($supportWhatsappNumber, '')) ?>" target="_blank" rel="noopener" data-i18n-key="btn-free-trial" data-i18n-default="Free Trial">Free Trial</a>
+            <?php if ($showHeaderTrial): ?>
+                <a class="btn primary header-cta" href="<?= e(getWhatsappLink($supportWhatsappNumber, '')) ?>" target="_blank" rel="noopener" data-i18n-key="btn-free-trial" data-i18n-default="Free Trial">Free Trial</a>
+            <?php endif; ?>
 
         </div>
 
@@ -515,7 +519,9 @@ $faqs = [
 
                     <a class="btn primary" href="#offres" data-i18n-key="hero-cta-primary" data-i18n-default="<?= e($settings['hero_cta'] ?? 'See plans') ?>"><?= e($settings['hero_cta'] ?? 'See plans') ?></a>
 
-                    <a class="btn outline" href="<?= e(getWhatsappLink($supportWhatsappNumber, 'I want a 24h test')) ?>" target="_blank" rel="noopener" data-i18n-key="hero-cta-test" data-i18n-default="Test 24h">Test 24h</a>
+                    <?php if ($showHeaderTrial): ?>
+                        <a class="btn outline" href="<?= e(getWhatsappLink($supportWhatsappNumber, 'I want a 24h test')) ?>" target="_blank" rel="noopener" data-i18n-key="hero-cta-test" data-i18n-default="Test 24h">Test 24h</a>
+                    <?php endif; ?>
 
                 </div>
 
@@ -524,7 +530,7 @@ $faqs = [
                         <li><?= e($device) ?></li>
                     <?php endforeach; ?>
                 </ul>
-                <?php if ($songs): ?>
+                <?php if ($musicPlayerVisible && $songs): ?>
                     <div class="music-player" data-music-player data-default-muted="<?= $songDefaultMuted ? 'true' : 'false' ?>" data-default-volume="<?= (int) $songDefaultVolume ?>">
                         <div class="music-player__cover">
                             <div class="music-player__thumb" data-music-cover></div>

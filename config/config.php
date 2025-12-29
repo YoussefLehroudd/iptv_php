@@ -16,6 +16,7 @@ return [
         'upload_preset' => getenv('CLOUDINARY_UPLOAD_PRESET') ?: null,
     ],
     'order_sound' => getenv('ORDER_SOUND') ?: 'config/iphone_new_message.mp3',
+    'show_header_trial' => getenv('SHOW_HEADER_TRIAL') ?: '1',
     'admin' => [
         'email' => getenv('ADMIN_EMAIL') ?: 'admin@iptvabdo.com',
         'password' => getenv('ADMIN_PASSWORD') ?: 'Canada#2025',
