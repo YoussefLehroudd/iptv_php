@@ -15,6 +15,7 @@ if ($docRoot === '' || !is_dir($docRoot . $publicBase . '/assets')) {
 }
 $assetBase = $publicBase . '/assets';
 $adminBase = $basePath . '/abdo_admin';
+$previewUrl = rtrim($publicBase, '/') . '/';
 
 $posterCategories = fetchAllAssoc($pdo, 'SELECT * FROM poster_categories ORDER BY label ASC');
 $posterCategoriesBySlug = [];
@@ -36,6 +37,7 @@ function adminNavIcons(): array
 {
     static $icons = [
         'content' => '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16c0 1.1.9 2 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="9" y1="13" x2="15" y2="13"></line><line x1="9" y1="17" x2="15" y2="17"></line></svg>',
+        'preview' => '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="14" rx="2"></rect><path d="M9 20h6"></path><path d="M12 18v2"></path><circle cx="12" cy="11" r="3"></circle></svg>',
         'theme' => '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4a8 8 0 0 0-8 8 8 8 0 0 0 8 8h.5a1.5 1.5 0 0 0 0-3H12a3 3 0 0 1 0-6h1a3 3 0 0 0 3-3V9a5 5 0 0 0-5-5z"></path><circle cx="7.5" cy="10.5" r="1"></circle><circle cx="15" cy="8" r="1"></circle><circle cx="17.5" cy="12" r="1"></circle></svg>',
         'slider' => '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"></rect><circle cx="8.5" cy="11" r="1.5"></circle><path d="M21 17l-5.5-5.5L11 16l-3-3-5 5"></path></svg>',
         'offers' => '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="5" width="20" height="14" rx="2"></rect><line x1="2" y1="10" x2="22" y2="10"></line><line x1="7" y1="15" x2="9.5" y2="15"></line><line x1="12" y1="15" x2="17" y2="15"></line></svg>',
@@ -128,6 +130,7 @@ function adminEnsureUniqueSlug(PDO $pdo, string $baseSlug): string
 
 $navItems = [
     'content' => ['label' => 'Hero & SEO', 'icon' => adminNavIcon('content')],
+    'preview' => ['label' => 'Vue live', 'icon' => adminNavIcon('preview')],
     'theme' => ['label' => 'Theme & couleurs', 'icon' => adminNavIcon('theme')],
     'slider' => ['label' => 'Slider hero', 'icon' => adminNavIcon('slider')],
     'poster_categories' => ['label' => 'Poster categories', 'icon' => adminNavIcon('content')],
@@ -216,6 +219,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 'hero_title',
                 'hero_subtitle',
                 'hero_cta',
+                'show_header_trial',
                 'seo_title',
                 'seo_description',
                 'highlight_video_headline',
@@ -236,6 +240,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         ? mb_substr($value, 0, $maxLengths[$field])
                         : substr($value, 0, $maxLengths[$field]);
                 }
+                // Handle boolean checkbox values
+                if ($field === 'show_header_trial') {
+                    $value = isset($_POST[$field]) ? '1' : '0';
+                }
                 setSetting($pdo, $field, $value, true);
             }
             foreach (['brand_logo_desktop_file' => 'brand_logo_desktop', 'brand_logo_mobile_file' => 'brand_logo_mobile'] as $fileKey => $settingKey) {
@@ -253,7 +261,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $theme = $_POST['theme'] ?? 'onyx';
             if (isset(themeOptions()[$theme])) {
                 setSetting($pdo, 'active_theme', $theme);
-                adminFlashRedirect('Thème changé.', 'theme', $adminBase);
+                $redirectSection = $_POST['redirect_section'] ?? 'theme';
+                if (!array_key_exists($redirectSection, $navItems)) {
+                    $redirectSection = 'theme';
+                }
+                adminFlashRedirect('Thème changé.', $redirectSection, $adminBase);
             }
             break;
         case 'update_support_whatsapp':
@@ -863,7 +875,7 @@ $editingTestimonial = $editing['testimonials'];
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Panel ABDO IPTV</title>
-    <link rel="stylesheet" href="<?= $assetBase ?>/css/style.css?v=<?= time() ?>">
+    <link rel="stylesheet" href="<?= $assetBase ?>/css/admin.css?v=<?= time() ?>">
     <style>
         /* Admin panel needs copy/paste + text selection */
         body.admin,
@@ -871,9 +883,209 @@ $editingTestimonial = $editing['testimonials'];
             user-select: text;
             -webkit-user-select: text;
         }
+
+        .live-preview {
+            display: grid;
+            gap: 1.5rem;
+        }
+
+        .preview-toolbar {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            justify-content: flex-start;
+            margin-left: 0.5rem;
+        }
+
+        .preview-toolbar .btn {
+            padding: 0.55rem 0.9rem;
+        }
+
+        .preview-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 1rem;
+            align-items: start;
+        }
+
+        .preview-frame-wrap {
+            background: #0f1117;
+            border: 1px solid var(--surface-200, rgba(255, 255, 255, 0.08));
+            border-radius: 16px;
+            overflow: hidden;
+            box-shadow: 0 25px 60px rgba(0, 0, 0, 0.3);
+            position: relative;
+            padding: 0.5rem;
+        }
+
+        .preview-frame {
+            width: 100%;
+            height: calc(100vh - 220px);
+            min-height: 640px;
+            background: #0d0f14;
+            border: none;
+            border-radius: 12px;
+        }
+
+        .preview-frame-wrap.is-tablet .preview-frame {
+            width: 900px;
+            margin: 0 auto;
+        }
+
+        .preview-frame-wrap.is-mobile .preview-frame {
+            width: 428px;
+            margin: 0 auto;
+        }
+
+        .preview-size {
+            display: inline-flex;
+            gap: 0.35rem;
+            align-items: center;
+        }
+
+        .preview-size button {
+            padding: 0.5rem 0.75rem;
+            border-radius: 10px;
+            border: 1px solid var(--surface-200, rgba(255, 255, 255, 0.1));
+            background: var(--surface-200, rgba(255, 255, 255, 0.04));
+            color: inherit;
+            cursor: pointer;
+        }
+
+        .preview-size button.active {
+            border-color: var(--accent-500, #7c3aed);
+            background: var(--accent-500, #7c3aed);
+            color: #fff;
+        }
+
+        .preview-quick-edits {
+            margin: 0.5rem 0 0.75rem;
+            display: grid;
+            gap: 0.35rem;
+        }
+
+        .preview-quick-edits .eyebrow {
+            margin: 0;
+            font-size: 0.85rem;
+            opacity: 0.8;
+        }
+
+        .quick-edit-grid {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+        }
+
+        .quick-edit-grid a {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0.55rem 0.85rem;
+            border-radius: 10px;
+            background: var(--surface-300, rgba(255, 255, 255, 0.04));
+            border: 1px solid var(--surface-200, rgba(255, 255, 255, 0.08));
+            color: inherit;
+            text-decoration: none;
+            transition: transform 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+            font-size: 0.92rem;
+            white-space: nowrap;
+        }
+
+        .quick-edit-grid a:hover {
+            transform: translateY(-1px);
+            border-color: var(--accent-400, #7c3aed);
+            background: var(--surface-400, rgba(255, 255, 255, 0.08));
+        }
+
+        /* Hide sidebar in preview by default for a full-width view; toggle button can reopen it */
+        .preview-mode {
+            overflow-x: hidden;
+        }
+
+        .preview-mode .admin-layout {
+            grid-template-columns: 260px 1fr;
+            max-width: 100%;
+            width: 100%;
+            padding: 0 0.75rem 1.5rem;
+            margin: 0 auto;
+        }
+
+        .preview-mode .admin-content {
+            max-width: 1200px;
+            width: 100%;
+            padding: 0 0.75rem;
+            margin: 0 auto;
+        }
+
+        .preview-mode .admin-sidebar {
+            display: block;
+        }
+
+        .preview-mode .sidebar-overlay {
+            display: none;
+        }
+
+        .preview-toggle {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .preview-toggle .btn {
+            padding: 0.45rem 0.75rem;
+        }
+
+        .preview-mode .admin-section.live-preview {
+            padding: 1.5rem 0 1rem;
+            margin: 0 auto;
+            background: transparent;
+            box-shadow: none;
+            width: 100%;
+            max-width: 1240px;
+            top: 0;
+        }
+
+        .preview-mode .preview-frame-wrap {
+            border: none;
+            border-radius: 16px;
+            box-shadow: none;
+            padding: 0;
+            width: 100%;
+            max-width: 1240px;
+            margin: 0 auto;
+        }
+
+        .preview-mode .preview-frame {
+            width: 100%;
+            height: calc(100vh - 120px);
+            min-height: 760px;
+        }
+
+        /* Allow manual hide/show of sidebar even on desktop */
+        body.sidebar-hidden .admin-layout {
+            grid-template-columns: 1fr;
+            max-width: 1240px;
+        }
+
+        body.sidebar-hidden .admin-sidebar {
+            display: none;
+        }
+
+        body.sidebar-hidden .sidebar-overlay {
+            display: none !important;
+        }
+
+        @media (max-width: 1100px) {
+            .preview-frame {
+                height: 70vh;
+            }
+        }
+
     </style>
 </head>
-<body class="admin">
+<?php $isPreviewSection = $currentSection === 'preview'; ?>
+<body class="admin<?= $isPreviewSection ? ' preview-mode' : '' ?>">
 <header class="admin-bar">
     <div class="admin-bar-header-row">
         <button class="sidebar-toggle" type="button" aria-controls="adminSidebar" aria-expanded="false" data-sidebar-toggle>
@@ -967,6 +1179,10 @@ $editingTestimonial = $editing['testimonials'];
                     <label>Texte CTA
                         <input type="text" name="hero_cta" value="<?= e($settings['hero_cta'] ?? '') ?>">
                     </label>
+                    <label class="checkbox checkbox-inline">
+                        <input type="checkbox" name="show_header_trial" value="1" <?= ($settings['show_header_trial'] ?? '1') === '1' ? 'checked' : '' ?>>
+                        <span>Afficher le bouton "Free Trial" dans le header</span>
+                    </label>
                     <label>SEO Title
                         <input type="text" name="seo_title" value="<?= e($settings['seo_title'] ?? '') ?>">
                     </label>
@@ -977,10 +1193,56 @@ $editingTestimonial = $editing['testimonials'];
                         <input type="text" name="highlight_video_headline" value="<?= e($settings['highlight_video_headline'] ?? '') ?>">
                     </label>
                     <label>Texte vidéo highlight
-                        <textarea name="highlight_video_copy" rows="3"><?= e($settings['highlight_video_copy'] ?? '') ?></textarea>
+                    <textarea name="highlight_video_copy" rows="3"><?= e($settings['highlight_video_copy'] ?? '') ?></textarea>
                     </label>
                     <button class="btn" type="submit">Sauvegarder</button>
                 </form>
+            </section>
+        <?php elseif ($currentSection === 'preview'): ?>
+            <section class="admin-section live-preview">
+                <div class="preview-toolbar">
+                    <div>
+                        <p class="eyebrow">Vue live</p>
+                        <h2>Aperçu complet du site</h2>
+                        <p>Affiche le site public (index) dans le panel et saute vers l'edition en un clic.</p>
+                    </div>
+                    <div class="preview-toolbar preview-toggle">
+                        <button class="btn ghost" type="button" data-preview-toggle-sidebar>Sidebar</button>
+                        <button class="btn ghost" type="button" data-preview-reload>Rafraichir l'aperçu</button>
+                        <a class="btn ghost" href="<?= $adminBase ?>/dashboard.php?section=theme">Editer thème</a>
+                        <a class="btn" href="<?= e($previewUrl) ?>" target="_blank" rel="noopener">Ouvrir dans un nouvel onglet</a>
+                        <div class="preview-size" data-preview-size>
+                            <button type="button" class="active" data-preview-target="desktop">Desktop</button>
+                            <button type="button" data-preview-target="tablet">Tablet</button>
+                            <button type="button" data-preview-target="mobile">Mobile</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="preview-quick-edits">
+                    <p class="eyebrow">Edition rapide du texte</p>
+                    <div class="quick-edit-grid">
+                        <a href="<?= $adminBase ?>/dashboard.php?section=content">Hero & SEO</a>
+                        <a href="<?= $adminBase ?>/dashboard.php?section=slider">Slider hero</a>
+                        <a href="<?= $adminBase ?>/dashboard.php?section=offers">Offres</a>
+                        <a href="<?= $adminBase ?>/dashboard.php?section=providers">Providers</a>
+                        <a href="<?= $adminBase ?>/dashboard.php?section=poster_categories">Posters</a>
+                        <?php if ($defaultPosterCategory): ?>
+                            <a href="<?= $adminBase ?>/dashboard.php?section=poster_<?= e($defaultPosterCategory['slug']) ?><?= $postersViewQuery ?>">Poster: <?= e($defaultPosterCategory['label']) ?></a>
+                        <?php endif; ?>
+                        <a href="<?= $adminBase ?>/dashboard.php?section=sports<?= $sportsViewQuery ?>">Sports</a>
+                        <a href="<?= $adminBase ?>/dashboard.php?section=testimonials">Témoignages</a>
+                        <a href="<?= $adminBase ?>/dashboard.php?section=checkout">Checkout</a>
+                        <a href="<?= $adminBase ?>/dashboard.php?section=messages">Messages</a>
+                        <a href="<?= $adminBase ?>/dashboard.php?section=orders">Commandes</a>
+                    </div>
+                </div>
+
+                <div class="preview-grid">
+                    <div class="preview-frame-wrap" data-preview-wrap>
+                        <iframe class="preview-frame" src="<?= e($previewUrl) ?>" title="Aperçu du site public" loading="lazy" data-preview-frame></iframe>
+                    </div>
+                </div>
             </section>
         <?php elseif ($currentSection === 'theme'): ?>
             <section class="admin-section">
@@ -1747,6 +2009,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const sidebarLinks = document.querySelectorAll('.sidebar-nav a');
     const sidebar = document.getElementById('adminSidebar');
     const isDesktop = () => window.matchMedia('(min-width: 961px)').matches;
+    const previewMode = body.classList.contains('preview-mode');
 
     const updateAria = (isOpen) => {
         if (toggle) {
@@ -1882,6 +2145,76 @@ document.addEventListener('DOMContentLoaded', () => {
             document.body.classList.remove('nav-dragging');
         });
     }
+
+    const previewFrame = document.querySelector('[data-preview-frame]');
+    const previewWrap = document.querySelector('[data-preview-wrap]');
+    const previewReload = document.querySelector('[data-preview-reload]');
+    const previewSizeButtons = document.querySelectorAll('[data-preview-size] [data-preview-target]');
+    const previewSidebarToggle = document.querySelector('[data-preview-toggle-sidebar]');
+    const toggleSidebarVisibility = () => {
+        const hidden = body.classList.toggle('sidebar-hidden');
+        if (hidden) {
+            closeSidebar();
+        } else {
+            if (isDesktop()) {
+                body.classList.add('sidebar-open');
+                updateAria(true);
+            } else {
+                openSidebar();
+            }
+        }
+    };
+    const previewSizeKey = 'adminPreviewSize';
+
+    const setPreviewSize = (size) => {
+        if (!previewWrap) return;
+        previewWrap.classList.remove('is-mobile', 'is-tablet');
+        if (size === 'mobile') {
+            previewWrap.classList.add('is-mobile');
+        } else if (size === 'tablet') {
+            previewWrap.classList.add('is-tablet');
+        }
+        previewSizeButtons.forEach((btn) => {
+            btn.classList.toggle('active', btn.dataset.previewTarget === size);
+        });
+        try {
+            localStorage.setItem(previewSizeKey, size);
+        } catch (e) {
+            /* ignore */
+        }
+    };
+
+    // Always start in desktop view; user can switch to tablet/mobile if needed.
+    try {
+        localStorage.removeItem(previewSizeKey);
+    } catch (e) {
+        /* ignore */
+    }
+    setPreviewSize('desktop');
+
+    previewSizeButtons.forEach((btn) => {
+        btn.addEventListener('click', () => {
+            const target = btn.dataset.previewTarget || 'desktop';
+            setPreviewSize(target);
+        });
+    });
+
+    previewSidebarToggle?.addEventListener('click', toggleSidebarVisibility);
+    document.querySelector('[data-preview-toggle-sidebar-top]')?.addEventListener('click', toggleSidebarVisibility);
+
+    previewReload?.addEventListener('click', () => {
+        if (!previewFrame) return;
+        try {
+            const next = new URL(previewFrame.src, window.location.origin);
+            next.searchParams.set('t', Date.now().toString());
+            previewFrame.src = next.toString();
+        } catch (e) {
+            const src = previewFrame.getAttribute('src') || '';
+            const clean = src.split('#')[0];
+            const glue = clean.includes('?') ? '&' : '?';
+            previewFrame.src = `${clean}${glue}t=${Date.now()}`;
+        }
+    });
 
     window.addEventListener('resize', () => {
         if (isDesktop()) {

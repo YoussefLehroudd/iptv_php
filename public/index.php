@@ -42,6 +42,7 @@ $songs = getSongs($pdo);
 $songDefaultVolume = (int) ($settings['song_default_volume'] ?? 40);
 $songDefaultMuted = ($settings['song_default_muted'] ?? '1') === '1';
 $contactSuccess = isset($_GET['contact']) && $_GET['contact'] === 'success';
+$lang = (isset($_GET['lang']) && $_GET['lang'] === 'fr') ? 'fr' : 'en';
 
 
 if (empty($_SESSION['csrf_token'])) {
@@ -245,11 +246,31 @@ $welcomeRotator = [
 
 
 $faqs = [
-    ['question' => 'Which devices are supported?', 'answer' => 'All Smart TVs, Android/Apple, FireStick, MAG, PC/Mac and even Chromecast.'],
-    ['question' => 'How long to activate my account?', 'answer' => 'Between 5 and 7 minutes after your WhatsApp payment is validated.'],
-    ['question' => 'Can I test before buying?', 'answer' => 'Yes, ask for a 24h test directly via the WhatsApp button.'],
-    ['question' => 'How many simultaneous connections?', 'answer' => 'Each plan includes 1 connection; multi-screen is available on request.'],
-    ['question' => 'Which payment methods?', 'answer' => 'Interac, bank transfer, USDT crypto, or PayPal depending on availability.'],
+    [
+        'key' => 'faq-1',
+        'question' => 'Which devices are supported?',
+        'answer' => 'All Smart TVs, Android/Apple, FireStick, MAG, PC/Mac and even Chromecast.',
+    ],
+    [
+        'key' => 'faq-2',
+        'question' => 'How long to activate my account?',
+        'answer' => 'Between 5 and 7 minutes after your WhatsApp payment is validated.',
+    ],
+    [
+        'key' => 'faq-3',
+        'question' => 'Can I test before buying?',
+        'answer' => 'Yes, ask for a 24h test directly via the WhatsApp button.',
+    ],
+    [
+        'key' => 'faq-4',
+        'question' => 'How many simultaneous connections?',
+        'answer' => 'Each plan includes 1 connection; multi-screen is available on request.',
+    ],
+    [
+        'key' => 'faq-5',
+        'question' => 'Which payment methods?',
+        'answer' => 'Interac, bank transfer, USDT crypto, or PayPal depending on availability.',
+    ],
 ];
 
 
@@ -258,7 +279,7 @@ $faqs = [
 
 <!DOCTYPE html>
 
-<html lang="en">
+<html lang="<?= e($lang) ?>">
 
 <head>
 
@@ -318,12 +339,53 @@ $faqs = [
 
         }
 
+        .lang-switch {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin-left: 1rem;
+        }
+
+        .lang-switch button {
+            padding: 0.35rem 0.65rem;
+            border: 1px solid rgba(255, 255, 255, 0.16);
+            background: transparent;
+            color: #f6f6f6;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .lang-switch button.active {
+            background: var(--accent-500, #7c3aed);
+            color: #fff;
+            border-color: var(--accent-500, #7c3aed);
+            box-shadow: 0 0 0 1px rgba(124, 58, 237, 0.25);
+        }
+
+        .lang-switch button:focus-visible {
+            outline: 2px solid var(--accent-500, #7c3aed);
+            outline-offset: 2px;
+        }
+
     </style>
 
     <script type="application/ld+json">
 
         <?= json_encode($structuredData, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT) ?>
 
+    </script>
+
+    <script>
+        // Keep index pinned to top when arriving from other pages (even with BFCache)
+        (function () {
+            if ('scrollRestoration' in window.history) {
+                window.history.scrollRestoration = 'manual';
+            }
+            const resetTop = () => window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+            window.addEventListener('pageshow', resetTop);
+            window.addEventListener('load', resetTop);
+        })();
     </script>
 
 </head>
@@ -382,19 +444,24 @@ $faqs = [
 
             <nav id="siteNav" class="site-nav">
 
-                <a href="#top">Home</a>
+                <a href="#top" data-i18n-key="nav-home" data-i18n-default="Home">Home</a>
 
-                <a href="#offres">Pricing</a>
+                <a href="#offres" data-i18n-key="nav-pricing" data-i18n-default="Pricing">Pricing</a>
 
-                <a href="#movies">Movies</a>
+                <a href="#movies" data-i18n-key="nav-movies" data-i18n-default="Movies">Movies</a>
 
-                <a href="#faq">FAQ</a>
+                <a href="#faq" data-i18n-key="nav-faq" data-i18n-default="FAQ">FAQ</a>
 
-                <a href="#support">Contact</a>
+                <a href="#support" data-i18n-key="nav-contact" data-i18n-default="Contact">Contact</a>
 
             </nav>
 
-            <a class="btn primary header-cta" href="<?= e(getWhatsappLink($supportWhatsappNumber, '')) ?>" target="_blank" rel="noopener">Free Trial</a>
+            <div class="lang-switch" aria-label="Language">
+                <button type="button" data-lang-switch="en" class="<?= $lang === 'en' ? 'active' : '' ?>">EN</button>
+                <button type="button" data-lang-switch="fr" class="<?= $lang === 'fr' ? 'active' : '' ?>">FR</button>
+            </div>
+
+            <a class="btn primary header-cta" href="<?= e(getWhatsappLink($supportWhatsappNumber, '')) ?>" target="_blank" rel="noopener" data-i18n-key="btn-free-trial" data-i18n-default="Free Trial">Free Trial</a>
 
         </div>
 
@@ -410,11 +477,11 @@ $faqs = [
 
             <div class="hero-content">
 
-                <p class="eyebrow">IPTV sécurisé · Paiement WhatsApp instantané</p>
+                <p class="eyebrow" data-i18n-key="hero-eyebrow" data-i18n-default="Secure IPTV · Instant WhatsApp payment">Secure IPTV · Instant WhatsApp payment</p>
 
-                <h1><?= e($settings['hero_title'] ?? 'Best IPTV Service at an Affordable Price') ?></h1>
+                <h1 data-i18n-key="hero-title" data-i18n-default="<?= e($settings['hero_title'] ?? 'Best IPTV Service at an Affordable Price') ?>"><?= e($settings['hero_title'] ?? 'Best IPTV Service at an Affordable Price') ?></h1>
 
-                <p class="subtitle"><?= e($settings['hero_subtitle'] ?? 'Experience breathtaking 4K visuals, +40K channels & 54K VOD across Canada.') ?></p>
+                <p class="subtitle" data-i18n-key="hero-subtitle" data-i18n-default="<?= e($settings['hero_subtitle'] ?? 'Experience breathtaking 4K visuals, +40K channels & 54K VOD across Canada.') ?>"><?= e($settings['hero_subtitle'] ?? 'Experience breathtaking 4K visuals, +40K channels & 54K VOD across Canada.') ?></p>
 
                 <?php if ($welcomeRotator): ?>
 
@@ -432,9 +499,9 @@ $faqs = [
 
                 <div class="hero-cta">
 
-                    <a class="btn primary" href="#offres"><?= e($settings['hero_cta'] ?? 'See plans') ?></a>
+                    <a class="btn primary" href="#offres" data-i18n-key="hero-cta-primary" data-i18n-default="<?= e($settings['hero_cta'] ?? 'See plans') ?>"><?= e($settings['hero_cta'] ?? 'See plans') ?></a>
 
-                    <a class="btn outline" href="<?= e(getWhatsappLink($supportWhatsappNumber, 'I want a 24h test')) ?>" target="_blank" rel="noopener">Test 24h</a>
+                    <a class="btn outline" href="<?= e(getWhatsappLink($supportWhatsappNumber, 'I want a 24h test')) ?>" target="_blank" rel="noopener" data-i18n-key="hero-cta-test" data-i18n-default="Test 24h">Test 24h</a>
 
                 </div>
 
@@ -554,7 +621,7 @@ $faqs = [
 
                         <span><?= e(number_format($visitStats['total'])) ?>+</span>
 
-                        <p>Clients actifs</p>
+                        <p data-i18n-key="stat-clients" data-i18n-default="Active clients">Clients actifs</p>
 
                     </div>
 
@@ -562,7 +629,7 @@ $faqs = [
 
                         <span>+40K</span>
 
-                        <p>Chaînes & VOD</p>
+                        <p data-i18n-key="stat-vod" data-i18n-default="Channels & VOD">Chaînes &amp; VOD</p>
 
                     </div>
 
@@ -570,7 +637,7 @@ $faqs = [
 
                         <span>99.9%</span>
 
-                        <p>Uptime garanti</p>
+                        <p data-i18n-key="stat-uptime" data-i18n-default="Uptime guaranteed">Uptime garanti</p>
 
                     </div>
 
@@ -618,11 +685,11 @@ $faqs = [
 
             <div class="section-head">
 
-                <p class="eyebrow">Choose your plan</p>
+                <p class="eyebrow" data-i18n-key="offers-eyebrow" data-i18n-default="Choose your plan">Choose your plan</p>
 
-                <h2>Choose Your <span>IPTV Plan</span></h2>
+                <h2 data-i18n-key="offers-title" data-i18n-default="Choose Your <span>IPTV Plan</span>" data-i18n-html="true">Choose Your <span>IPTV Plan</span></h2>
 
-                <p>Activation in 5-7 minutes · Support EN/FR/AR 24/7</p>
+                <p data-i18n-key="offers-subtitle" data-i18n-default="Activation in 5-7 minutes · Support EN/FR/AR 24/7">Activation in 5-7 minutes · Support EN/FR/AR 24/7</p>
 
             </div>
 
@@ -650,9 +717,9 @@ $faqs = [
 
                         </ul>
 
-                        <a class="btn primary" href="<?= $basePath ?>/checkout?offer=<?= (int) $offer['id'] ?>">Buy now</a>
+                        <a class="btn primary" href="<?= $basePath ?>/checkout?offer=<?= (int) $offer['id'] ?>" data-i18n-key="offers-buy" data-i18n-default="Buy now">Buy now</a>
 
-                        <small>Ready in 5-7 min · WhatsApp</small>
+                        <small data-i18n-key="offers-ready" data-i18n-default="Ready in 5-7 min · WhatsApp">Ready in 5-7 min · WhatsApp</small>
 
                     </article>
 
@@ -670,13 +737,13 @@ $faqs = [
 
             $benefits = [
 
-                ['title' => 'Fast Reliable Servers', 'desc' => '10Gb Montreal servers + anti-freeze AI.'],
+                ['key' => 'benefit-1', 'title' => 'Fast Reliable Servers', 'desc' => '10Gb Montreal servers + anti-freeze AI.'],
 
-                ['title' => '4K / FHD Streaming', 'desc' => 'Compatible MAG, Android, Enigma, Apple TV, FireStick.'],
+                ['key' => 'benefit-2', 'title' => '4K / FHD Streaming', 'desc' => 'Compatible MAG, Android, Enigma, Apple TV, FireStick.'],
 
-                ['title' => 'Money Back Guarantee', 'desc' => 'Refund within 10 days if you are not satisfied.'],
+                ['key' => 'benefit-3', 'title' => 'Money Back Guarantee', 'desc' => 'Refund within 10 days if you are not satisfied.'],
 
-                ['title' => 'Support 24/7', 'desc' => 'WhatsApp + email EN / FR / AR at any time.'],
+                ['key' => 'benefit-4', 'title' => 'Support 24/7', 'desc' => 'WhatsApp + email EN / FR / AR at any time.'],
 
             ];
 
@@ -684,9 +751,9 @@ $faqs = [
 
                 <article>
 
-                    <h3><?= e($benefit['title']) ?></h3>
+                    <h3 data-i18n-key="<?= e($benefit['key']) ?>-title" data-i18n-default="<?= e($benefit['title']) ?>"><?= e($benefit['title']) ?></h3>
 
-                    <p><?= e($benefit['desc']) ?></p>
+                    <p data-i18n-key="<?= e($benefit['key']) ?>-desc" data-i18n-default="<?= e($benefit['desc']) ?>"><?= e($benefit['desc']) ?></p>
 
                 </article>
 
@@ -701,15 +768,17 @@ $faqs = [
             <?php
             $sectionId = $index === 0 ? 'movies' : 'movies-' . ($index + 1);
             $sliderId = $sectionId;
+            $eyebrowKey = $index === 0 ? 'media-eyebrow' : null;
+            $titleKey = $index === 0 ? 'media-title' : null;
             ?>
 
             <section class="media-section" id="<?= e($sectionId) ?>" data-animate>
 
                 <div class="section-head">
 
-                    <p class="eyebrow"><?= e($group['label']) ?></p>
+                    <p class="eyebrow"<?= $eyebrowKey ? ' data-i18n-key="' . e($eyebrowKey) . '" data-i18n-default="' . e($group['label']) . '"' : '' ?>><?= e($group['label']) ?></p>
 
-                    <h2><?= e($group['headline'] ?? 'Latest blockbuster posters') ?></h2>
+                    <h2<?= $titleKey ? ' data-i18n-key="' . e($titleKey) . '" data-i18n-default="' . e($group['headline'] ?? 'Latest blockbuster posters') . '"' : '' ?>><?= e($group['headline'] ?? 'Latest blockbuster posters') ?></h2>
 
                 </div>
 
@@ -753,9 +822,9 @@ $faqs = [
 
             <div class="section-head">
 
-                <p class="eyebrow">All Sports Events</p>
+                <p class="eyebrow" data-i18n-key="sports-eyebrow" data-i18n-default="All Sports Events">All Sports Events</p>
 
-                <h2>Football · NBA · F1 · UFC</h2>
+                <h2 data-i18n-key="sports-title" data-i18n-default="Football · NBA · F1 · UFC">Football · NBA · F1 · UFC</h2>
 
             </div>
 
@@ -797,9 +866,9 @@ $faqs = [
 
             <div class="section-head">
 
-                <p class="eyebrow">Supported Devices</p>
+                <p class="eyebrow" data-i18n-key="devices-eyebrow" data-i18n-default="Supported Devices">Supported Devices</p>
 
-                <h2>Compatible partout</h2>
+                <h2 data-i18n-key="devices-title" data-i18n-default="Compatible everywhere">Compatible partout</h2>
 
             </div>
 
@@ -821,9 +890,9 @@ $faqs = [
 
             <div class="section-head">
 
-                <p class="eyebrow">FAQ</p>
+                <p class="eyebrow" data-i18n-key="faq-eyebrow" data-i18n-default="FAQ">FAQ</p>
 
-                <h2>Frequently Asked Questions</h2>
+                <h2 data-i18n-key="faq-title" data-i18n-default="Frequently Asked Questions">Frequently Asked Questions</h2>
 
             </div>
 
@@ -835,7 +904,7 @@ $faqs = [
 
                         <button type="button" class="faq-question" data-faq="<?= (int) $index ?>">
 
-                            <span><?= e($faq['question']) ?></span>
+                            <span data-i18n-key="<?= e($faq['key']) ?>-q" data-i18n-default="<?= e($faq['question']) ?>"><?= e($faq['question']) ?></span>
 
                             <span>›</span>
 
@@ -843,7 +912,7 @@ $faqs = [
 
                         <div class="faq-answer" data-faq-panel="<?= (int) $index ?>">
 
-                            <p><?= e($faq['answer']) ?></p>
+                            <p data-i18n-key="<?= e($faq['key']) ?>-a" data-i18n-default="<?= e($faq['answer']) ?>"><?= e($faq['answer']) ?></p>
 
                         </div>
 
@@ -861,9 +930,9 @@ $faqs = [
 
             <div class="section-head">
 
-                <p class="eyebrow">Customer reviews</p>
+                <p class="eyebrow" data-i18n-key="testimonials-eyebrow" data-i18n-default="Customer reviews">Customer reviews</p>
 
-                <h2>Hear from our satisfied customers</h2>
+                <h2 data-i18n-key="testimonials-title" data-i18n-default="Hear from our satisfied customers">Hear from our satisfied customers</h2>
 
             </div>
 
@@ -907,11 +976,11 @@ $faqs = [
 
                 <div>
 
-                    <p class="eyebrow">Fast support</p>
+                    <p class="eyebrow" data-i18n-key="contact-eyebrow" data-i18n-default="Fast support">Fast support</p>
 
-                    <h2>Need help? Contact us</h2>
+                    <h2 data-i18n-key="contact-title" data-i18n-default="Need help? Contact us">Need help? Contact us</h2>
 
-                    <p>Reach us on WhatsApp or through this form for a quick reply.</p>
+                    <p data-i18n-key="contact-copy" data-i18n-default="Reach us on WhatsApp or through this form for a quick reply.">Reach us on WhatsApp or through this form for a quick reply.</p>
 
                     <?php if ($contactSuccess): ?>
 
@@ -923,15 +992,15 @@ $faqs = [
 
                         <input type="hidden" name="csrf_token" value="<?= e($_SESSION['csrf_token']) ?>">
 
-                        <label>Full name<input type="text" name="full_name" required></label>
+                        <label data-i18n-key="contact-fullname" data-i18n-default="Full name">Full name<input type="text" name="full_name" required></label>
 
-                        <label>Email<input type="email" name="email" required></label>
+                        <label data-i18n-key="contact-email" data-i18n-default="Email">Email<input type="email" name="email" required></label>
 
-                        <label>Phone<input type="text" name="phone"></label>
+                        <label data-i18n-key="contact-phone" data-i18n-default="Phone">Phone<input type="text" name="phone"></label>
 
-                        <label>Message<textarea name="message" rows="4" required></textarea></label>
+                        <label data-i18n-key="contact-message" data-i18n-default="Message">Message<textarea name="message" rows="4" required></textarea></label>
 
-                        <button type="submit" class="btn primary">Send</button>
+                        <button type="submit" class="btn primary" data-i18n-key="contact-submit" data-i18n-default="Send">Send</button>
 
                     </form>
 
@@ -947,17 +1016,17 @@ $faqs = [
 
 
 
-    <footer data-animate>
+<footer data-animate>
 
-        <p>© <?= date('Y') ?> <?= e($brandName) ?> · Secure IPTV Canada · All rights reserved.</p>
+        <p data-i18n-key="footer-note" data-i18n-default="© {year} {brand} · Secure IPTV Canada · All rights reserved." data-i18n-year="<?= date('Y') ?>" data-i18n-brand="<?= e($brandName) ?>">© <?= date('Y') ?> <?= e($brandName) ?> · Secure IPTV Canada · All rights reserved.</p>
 
         <div class="footer-links">
 
-            <a href="#offres">Pricing Plans</a>
+            <a href="#offres" data-i18n-key="footer-pricing" data-i18n-default="Pricing Plans">Pricing Plans</a>
 
-            <a href="#faq">FAQ</a>
+            <a href="#faq" data-i18n-key="footer-faq" data-i18n-default="FAQ">FAQ</a>
 
-            <a href="<?= e(getWhatsappLink($supportWhatsappNumber, '')) ?>" target="_blank" rel="noopener">Support WhatsApp</a>
+            <a href="<?= e(getWhatsappLink($supportWhatsappNumber, '')) ?>" target="_blank" rel="noopener" data-i18n-key="footer-support" data-i18n-default="Support WhatsApp">Support WhatsApp</a>
 
         </div>
 
@@ -1009,37 +1078,187 @@ $faqs = [
 
     </script>
 
+    <script>
+        (function () {
+            const serverLang = <?= json_encode($lang) ?>;
+            const urlLang = new URLSearchParams(window.location.search).get('lang');
+            const storedLang = localStorage.getItem('site-lang');
+            const initialLang = urlLang === 'fr' ? 'fr' : urlLang === 'en' ? 'en' : storedLang === 'fr' ? 'fr' : storedLang === 'en' ? 'en' : serverLang;
+
+            const translations = {
+                en: {
+                    'nav-home': 'Home',
+                    'nav-pricing': 'Pricing',
+                    'nav-movies': 'Movies',
+                    'nav-faq': 'FAQ',
+                    'nav-contact': 'Contact',
+                    'btn-free-trial': 'Free Trial',
+                    'hero-eyebrow': 'Secure IPTV · Instant WhatsApp payment',
+                    'hero-title': 'Best IPTV Service at an Affordable Price',
+                    'hero-subtitle': 'Experience breathtaking 4K visuals, +40K channels & 54K VOD across Canada.',
+                    'hero-cta-primary': 'See plans',
+                    'hero-cta-test': 'Test 24h',
+                    'stat-clients': 'Active clients',
+                    'stat-vod': 'Channels & VOD',
+                    'stat-uptime': 'Uptime guaranteed',
+                    'offers-eyebrow': 'Choose your plan',
+                    'offers-title': 'Choose Your <span>IPTV Plan</span>',
+                    'offers-subtitle': 'Activation in 5-7 minutes · Support EN/FR/AR 24/7',
+                    'offers-buy': 'Buy now',
+                    'offers-ready': 'Ready in 5-7 min · WhatsApp',
+                    'devices-eyebrow': 'Supported Devices',
+                    'devices-title': 'Compatible everywhere',
+                    'faq-eyebrow': 'FAQ',
+                    'faq-title': 'Frequently Asked Questions',
+                    'testimonials-eyebrow': 'Customer reviews',
+                    'testimonials-title': 'Hear from our satisfied customers',
+                    'benefit-1-title': 'Fast Reliable Servers',
+                    'benefit-1-desc': '10Gb Montreal servers + anti-freeze AI.',
+                    'benefit-2-title': '4K / FHD Streaming',
+                    'benefit-2-desc': 'Compatible MAG, Android, Enigma, Apple TV, FireStick.',
+                    'benefit-3-title': 'Money Back Guarantee',
+                    'benefit-3-desc': 'Refund within 10 days if you are not satisfied.',
+                    'benefit-4-title': 'Support 24/7',
+                    'benefit-4-desc': 'WhatsApp + email EN / FR / AR at any time.',
+                    'contact-eyebrow': 'Fast support',
+                    'contact-title': 'Need help? Contact us',
+                    'contact-copy': 'Reach us on WhatsApp or through this form for a quick reply.',
+                    'media-eyebrow': 'Movies & TV Shows',
+                    'media-title': 'Latest blockbuster posters',
+                    'sports-eyebrow': 'All Sports Events',
+                    'sports-title': 'Football · NBA · F1 · UFC',
+                    'contact-subject': 'Subject',
+                    'contact-fullname': 'Full name',
+                    'contact-email': 'Email',
+                    'contact-phone': 'Phone'
+                    'contact-whatsapp': 'WhatsApp'
+                    'contact-city': 'City',
+                    'contact-message': 'Message',
+                    'contact-submit': 'Send',
+                    'footer-note': '© {year} {brand} · Secure IPTV Canada · All rights reserved.',
+                    'footer-pricing': 'Pricing Plans',
+                    'footer-faq': 'FAQ',
+                    'footer-support': 'Support WhatsApp',
+                    'faq-1-q': 'Which devices are supported?',
+                    'faq-1-a': 'All Smart TVs, Android/Apple, FireStick, MAG, PC/Mac and even Chromecast.',
+                    'faq-2-q': 'How long to activate my account?',
+                    'faq-2-a': 'Between 5 and 7 minutes after your WhatsApp payment is validated.',
+                    'faq-3-q': 'Can I test before buying?',
+                    'faq-3-a': 'Yes, ask for a 24h test directly via the WhatsApp button.',
+                    'faq-4-q': 'How many simultaneous connections?',
+                    'faq-4-a': 'Each plan includes 1 connection; multi-screen is available on request.',
+                    'faq-5-q': 'Which payment methods?',
+                    'faq-5-a': 'Interac, bank transfer, USDT crypto, or PayPal depending on availability.',
+                },
+                fr: {
+                    'nav-home': 'Accueil',
+                    'nav-pricing': 'Tarifs',
+                    'nav-movies': 'Films et séries',
+                    'nav-faq': 'FAQ',
+                    'nav-contact': 'Contact',
+                    'btn-free-trial': 'Essai gratuit',
+                    'hero-eyebrow': 'IPTV sécurisée · Paiement WhatsApp instantané',
+                    'hero-title': 'Meilleur service IPTV à prix abordable',
+                    'hero-subtitle': 'Profitez d\'une image 4K, +40K chaînes & 54K VOD partout au Canada.',
+                    'hero-cta-primary': 'Voir les offres',
+                    'hero-cta-test': 'Test 24h',
+                    'stat-clients': 'Clients actifs',
+                    'stat-vod': 'Chaînes & VOD',
+                    'stat-uptime': 'Uptime garanti',
+                    'offers-eyebrow': 'Choisissez votre offre',
+                    'offers-title': 'Choisissez votre <span>offre IPTV</span>',
+                    'offers-subtitle': 'Activation en 5 à 7 minutes · Support EN/FR/AR 24/7',
+                    'offers-buy': 'Acheter',
+                    'offers-ready': 'Prêt en 5-7 min · WhatsApp',
+                    'devices-eyebrow': 'Appareils supportés',
+                    'devices-title': 'Compatible partout',
+                    'faq-eyebrow': 'FAQ',
+                    'faq-title': 'Questions fréquentes',
+                    'testimonials-eyebrow': 'Avis clients',
+                    'testimonials-title': 'Ils nous font confiance',
+                    'benefit-1-title': 'Serveurs rapides et fiables',
+                    'benefit-1-desc': 'Serveurs 10Gb Montréal + anti-freeze AI.',
+                    'benefit-2-title': 'Streaming 4K / FHD',
+                    'benefit-2-desc': 'Compatible MAG, Android, Enigma, Apple TV, FireStick.',
+                    'benefit-3-title': 'Garantie satisfait ou remboursé',
+                    'benefit-3-desc': 'Remboursement sous 10 jours si vous n\'êtes pas satisfait.',
+                    'benefit-4-title': 'Support 24/7',
+                    'benefit-4-desc': 'WhatsApp + email EN / FR / AR à tout moment.',
+                    'contact-eyebrow': 'Support rapide',
+                    'contact-title': 'Besoin d\'aide ? Contactez-nous',
+                    'contact-copy': 'Écrivez-nous sur WhatsApp ou via le formulaire pour une réponse rapide.',
+                    'media-eyebrow': 'Films & séries',
+                    'media-title': 'Les dernières affiches blockbuster',
+                    'sports-eyebrow': 'Tous les événements sportifs',
+                    'sports-title': 'Football · NBA · F1 · UFC',
+                    'contact-subject': 'Sujet',
+                    'contact-fullname': 'Nom complet',
+                    'contact-email': 'Email',
+                    'contact-phone': 'Téléphone',
+                    'contact-message': 'Message',
+                    'contact-submit': 'Envoyer',
+                    'footer-note': '© {year} {brand} · IPTV sécurisée Canada · Tous droits réservés.',
+                    'footer-pricing': 'Offres',
+                    'footer-faq': 'FAQ',
+                    'footer-support': 'Support WhatsApp',
+                    'faq-1-q': 'Quels appareils sont supportés ?',
+                    'faq-1-a': 'Toutes les Smart TV, Android/Apple, FireStick, MAG, PC/Mac et même Chromecast.',
+                    'faq-2-q': 'Combien de temps pour activer mon compte ?',
+                    'faq-2-a': 'Entre 5 et 7 minutes après validation de votre paiement WhatsApp.',
+                    'faq-3-q': 'Puis-je tester avant d\'acheter ?',
+                    'faq-3-a': 'Oui, demande un test 24h directement via le bouton WhatsApp.',
+                    'faq-4-q': 'Combien de connexions simultanées ?',
+                    'faq-4-a': 'Chaque plan inclut 1 connexion ; le multi-écran est disponible sur demande.',
+                    'faq-5-q': 'Quels modes de paiement ?',
+                    'faq-5-a': 'Interac, virement bancaire, crypto USDT ou PayPal selon disponibilité.',
+                
+                },
+            };
+
+            const els = Array.from(document.querySelectorAll('[data-i18n-key]'));
+            const applyLang = (target) => {
+                const pack = translations[target] || translations[serverLang] || translations.en;
+                els.forEach((el) => {
+                    const key = el.dataset.i18nKey;
+                    const fallback = el.dataset.i18nDefault || el.textContent;
+                    let text = pack[key] ?? fallback;
+                    if (!text) return;
+                    text = text
+                        .replace('{year}', el.dataset.i18nYear || new Date().getFullYear())
+                        .replace('{brand}', el.dataset.i18nBrand || 'ABDO IPTV');
+                    if (el.dataset.i18nHtml === 'true') {
+                        el.innerHTML = text;
+                    } else {
+                        el.textContent = text;
+                    }
+                });
+                document.querySelectorAll('[data-lang-switch]').forEach((btn) => {
+                    btn.classList.toggle('active', btn.dataset.langSwitch === target);
+                });
+                document.documentElement.setAttribute('lang', target);
+                localStorage.setItem('site-lang', target);
+                const url = new URL(window.location.href);
+                url.searchParams.set('lang', target);
+                window.history.replaceState({}, '', url.toString());
+            };
+
+            document.querySelectorAll('[data-lang-switch]').forEach((btn) => {
+                btn.addEventListener('click', (evt) => {
+                    evt.preventDefault();
+                    const target = btn.dataset.langSwitch === 'fr' ? 'fr' : 'en';
+                    applyLang(target);
+                });
+            });
+
+            applyLang(initialLang || 'en');
+        })();
+
+    </script>
+
     <script src="<?= $assetBase ?>/js/main.js?v=<?= time() ?>" defer></script>
 
 </body>
 
 </html>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 

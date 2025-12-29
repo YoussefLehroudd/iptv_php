@@ -58,12 +58,13 @@ if (!$fullName || !$email || !$message) {
     redirectWithStatus('error');
 }
 
-$stmt = $pdo->prepare('INSERT INTO contact_messages (full_name, email, phone, message) VALUES (:full_name, :email, :phone, :message)');
+$stmt = $pdo->prepare('INSERT INTO contact_messages (full_name, email, phone, message, is_read) VALUES (:full_name, :email, :phone, :message, :is_read)');
 $stmt->execute([
     'full_name' => $fullName,
     'email' => $email,
     'phone' => $phone,
     'message' => $message,
+    'is_read' => 0,
 ]);
 
 redirectWithStatus('success');

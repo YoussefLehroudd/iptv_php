@@ -46,7 +46,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ABDO IPTV · Admin</title>
-    <link rel="stylesheet" href="<?= $assetBase ?>/css/style.css?v=<?= time() ?>">
+    <link rel="stylesheet" href="<?= $assetBase ?>/css/admin.css?v=<?= time() ?>">
 </head>
 <body class="admin auth">
     <div class="auth-wrapper">

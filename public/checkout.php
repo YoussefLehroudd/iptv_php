@@ -18,6 +18,14 @@ $confirmationCode = '';
 $paymentError = '';
 $isAjax = (isset($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest') || (isset($_POST['ajax']) && $_POST['ajax'] === '1');
 
+$lang = 'en';
+if (!empty($_GET['lang'])) {
+    $lang = strtolower($_GET['lang']) === 'fr' ? 'fr' : 'en';
+    $_SESSION['checkout_lang'] = $lang;
+} elseif (!empty($_SESSION['checkout_lang'])) {
+    $lang = $_SESSION['checkout_lang'];
+}
+
 
 $settings = getSettings($pdo);
 $themeVars = getActiveThemeVars($settings['active_theme'] ?? 'onyx');
@@ -242,12 +250,16 @@ if ($docRoot === '' || !is_dir($docRoot . $publicBase . '/assets')) {
 $assetBase = $publicBase . '/assets';
 $posterImage = $assetBase . '/images/iptv-logo.svg';
 
+$navText = $lang === 'fr'
+    ? ['home' => 'Accueil', 'pricing' => 'Tarifs', 'movies' => 'Films et séries', 'faq' => 'FAQ', 'contact' => 'Contact']
+    : ['home' => 'Home', 'pricing' => 'Pricing', 'movies' => 'Movies', 'faq' => 'FAQ', 'contact' => 'Contact'];
+
 $seoTitle = 'Paiement - ' . $offerName . ' | ' . $brandName;
 $seoDescription = 'Complète ta commande ' . $offerName . ' (' . $offerDuration . ') avec un checkout façon Shopify.';
 
 ?>
 <!DOCTYPE html>
-<html lang="fr">
+<html lang="<?= e($lang) ?>">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -263,10 +275,120 @@ $seoDescription = 'Complète ta commande ' . $offerName . ' (' . $offerDuration 
             <?= $var ?>: <?= e($value) ?>;
             <?php endforeach; ?>
         }
+
+        .checkout-header {
+            position: sticky;
+            top: 0;
+            z-index: 12;
+            background: transparent;
+            transition: transform 0.18s ease, opacity 0.18s ease;
+        }
+
+        .checkout-header .header-shell {
+            max-width: 1240px;
+            margin: 0.5rem auto;
+            padding: 0.5rem 0.75rem;
+        }
+
+        .checkout-header .site-header {
+            background: linear-gradient(135deg, rgba(12, 14, 21, 0.95), rgba(10, 12, 18, 0.92));
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            border-radius: 999px;
+            padding: 0.75rem 1.35rem;
+            display: flex;
+            align-items: center;
+            gap: 1.5rem;
+            box-shadow: 0 18px 32px rgba(0, 0, 0, 0.4);
+        }
+
+        .checkout-header .nav-wrapper {
+            gap: 1rem;
+        }
+
+        .checkout-header .site-nav a {
+            color: rgba(255, 255, 255, 0.9);
+            font-weight: 600;
+        }
+
+        .checkout-header .site-nav a:hover {
+            color: #fff;
+        }
+
+        .checkout-header .lang-switch {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .checkout-header .lang-switch button {
+            padding: 0.35rem 0.65rem;
+            border: 1px solid var(--border-color, rgba(255, 255, 255, 0.16));
+            background: var(--surface-300, rgba(255, 255, 255, 0.04));
+            color: inherit;
+            border-radius: 999px;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            min-width: 46px;
+        }
+
+        .checkout-header .lang-switch button.active {
+            background: var(--accent-500, #7c3aed);
+            color: #fff;
+            border-color: var(--accent-500, #7c3aed);
+            box-shadow: 0 6px 16px rgba(0, 0, 0, 0.25);
+        }
+
+        .checkout-header .lang-switch button:focus {
+            outline: 2px solid var(--accent-500, #7c3aed);
+            outline-offset: 2px;
+        }
+
+        .checkout-header.hidden {
+            transform: translateY(-100%);
+            opacity: 0;
+            pointer-events: none;
+        }
     </style>
 </head>
 <body class="checkout-page">
     <div class="noise"></div>
+    <header class="checkout-header">
+        <div class="header-shell">
+            <div class="site-header">
+                <div class="logo">
+                    <?php if ($brandLogoDesktop || $brandLogoMobile): ?>
+                        <picture class="logo-picture">
+                            <?php if ($brandLogoMobile): ?>
+                                <source srcset="<?= e($brandLogoMobile) ?>" media="(max-width: 720px)">
+                            <?php endif; ?>
+                            <img src="<?= e($brandLogoDesktop ?: $brandLogoMobile) ?>" alt="<?= e($brandName) ?>">
+                        </picture>
+                    <?php else: ?>
+                        <span class="logo-icon">IPTV</span>
+                    <?php endif; ?>
+                    <div>
+                        <strong><?= e($brandName) ?></strong>
+                        <small><?= e($brandTagline) ?></small>
+                    </div>
+                </div>
+                <div class="nav-wrapper">
+                    <nav class="site-nav">
+                        <a href="<?= $basePath ?>/#top" data-i18n-key="nav-home" data-i18n-default="Home"><?= e($navText['home']) ?></a>
+                        <a href="<?= $basePath ?>/#offres" data-i18n-key="nav-pricing" data-i18n-default="Pricing"><?= e($navText['pricing']) ?></a>
+                        <a href="<?= $basePath ?>/#movies" data-i18n-key="nav-movies" data-i18n-default="Movies"><?= e($navText['movies']) ?></a>
+                        <a href="<?= $basePath ?>/#faq" data-i18n-key="nav-faq" data-i18n-default="FAQ"><?= e($navText['faq']) ?></a>
+                        <a href="<?= $basePath ?>/#support" data-i18n-key="nav-contact" data-i18n-default="Contact"><?= e($navText['contact']) ?></a>
+                    </nav>
+                    <div class="lang-switch" aria-label="Language">
+                        <button type="button" data-lang-switch="en" class="<?= $lang === 'en' ? 'active' : '' ?>">EN</button>
+                        <button type="button" data-lang-switch="fr" class="<?= $lang === 'fr' ? 'active' : '' ?>">FR</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </header>
     <main class="checkout-main">
         <section class="payment-checkout" data-animate>
             <div class="payment-card">
@@ -282,25 +404,26 @@ $seoDescription = 'Complète ta commande ' . $offerName . ' (' . $offerDuration 
                     <form class="checkout-form" action="<?= e($_SERVER['REQUEST_URI'] ?? '') ?>" method="post" novalidate>
                         <input type="hidden" name="offer_id" value="<?= (int) $offerId ?>">
                         <div class="form-head">
-                            <h3>Contact information</h3>
+                            <h3 data-i18n-key="contact-heading" data-i18n-default="Contact information">Contact information</h3>
                         </div>
-                        <label>Email or mobile phone number
+                        <label>
+                            <span data-i18n-key="contact-label" data-i18n-default="Email or mobile phone number">Email or mobile phone number</span>
                             <input type="text" name="contact" placeholder="jane.doe@email.com" required>
                         </label>
                         <label class="checkbox">
                             <input type="checkbox" name="newsletter" checked>
-                            <span>Email me with news and offers</span>
+                            <span data-i18n-key="newsletter" data-i18n-default="Email me with news and offers">Email me with news and offers</span>
                         </label>
                         <div class="form-head">
-                            <h3>Delivery method</h3>
+                            <h3 data-i18n-key="delivery-heading" data-i18n-default="Delivery method">Delivery method</h3>
                         </div>
                         <div class="delivery-options">
                             <label class="delivery-option">
                                 <input type="radio" name="delivery" value="ship" checked>
                                 <div class="delivery-option__details">
                                     <div>
-                                        <strong>Ship</strong>
-                                        <small>Activation digitale en 5-7 min</small>
+                                        <strong data-i18n-key="delivery-ship" data-i18n-default="Ship">Ship</strong>
+                                        <small data-i18n-key="delivery-ship-note" data-i18n-default="Activation digitale en 5-7 min">Activation digitale en 5-7 min</small>
                                     </div>
                                 </div>
                             </label>
@@ -308,14 +431,14 @@ $seoDescription = 'Complète ta commande ' . $offerName . ' (' . $offerDuration 
                                 <input type="radio" name="delivery" value="pickup">
                                 <div class="delivery-option__details">
                                     <div>
-                                        <strong>Pick up</strong>
-                                        <small>Support WhatsApp ou e-mail</small>
+                                        <strong data-i18n-key="delivery-pickup" data-i18n-default="Pick up">Pick up</strong>
+                                        <small data-i18n-key="delivery-pickup-note" data-i18n-default="Support WhatsApp ou e-mail">Support WhatsApp ou e-mail</small>
                                     </div>
                                 </div>
                             </label>
                         </div>
                         <div class="form-head">
-                            <h3>Shipping address</h3>
+                            <h3 data-i18n-key="shipping-heading" data-i18n-default="Shipping address">Shipping address</h3>
                         </div>
                         <?php if (in_array('first_name', $checkoutFieldsEnabled, true) || in_array('last_name', $checkoutFieldsEnabled, true)): ?>
                         <div class="inline-inputs">
@@ -499,7 +622,7 @@ $seoDescription = 'Complète ta commande ' . $offerName . ' (' . $offerDuration 
                         </div>
                         <?php if ($offerFeatures): ?>
                             <div class="summary-features">
-                                <p>Ce plan inclut :</p>
+                                <p data-i18n-key="summary-includes" data-i18n-default="Ce plan inclut :">Ce plan inclut :</p>
                                 <ul>
                                     <?php foreach ($offerFeatures as $feature): ?>
                                         <li><?= e($feature) ?></li>
@@ -514,7 +637,7 @@ $seoDescription = 'Complète ta commande ' . $offerName . ' (' . $offerDuration 
     </main>
 
     <footer class="checkout-footer">
-        <p>© <?= date('Y') ?> <?= e($brandName) ?> — Secure payment. <a href="<?= e(getWhatsappLink($supportWhatsappNumber, 'Support checkout')) ?>" target="_blank" rel="noopener">Need help? Message us on WhatsApp</a></p>
+        <p>© <?= date('Y') ?> <?= e($brandName) ?> — Secure payment. <a href="<?= e(getWhatsappLink($supportWhatsappNumber, 'Support checkout')) ?>" target="_blank" rel="noopener" data-i18n-key="footer-help" data-i18n-default="Need help? Message us on WhatsApp">Need help? Message us on WhatsApp</a></p>
     </footer>
 
     <a class="whatsapp-float whatsapp-float--chat" href="<?= e($whatsappLink) ?>" target="_blank" rel="noopener" aria-label="WhatsApp">
@@ -542,6 +665,134 @@ $seoDescription = 'Complète ta commande ' . $offerName . ' (' . $offerDuration 
     </div>
     <script>
         window.APP_THEME = <?= json_encode($settings['active_theme'] ?? 'onyx') ?>;
+    </script>
+    <script>
+        (function () {
+            const lang = <?= json_encode($lang) ?>;
+            const translations = {
+                en: {
+                    'nav-home': 'Home',
+                    'nav-pricing': 'Pricing',
+                    'nav-movies': 'Movies',
+                    'nav-faq': 'FAQ',
+                    'nav-contact': 'Contact',
+                    'preview-eyebrow': 'Live preview',
+                    'preview-title': 'Full site preview',
+                    'preview-desc': 'See the public site (index) and jump to edits in one click.',
+                    'btn-sidebar': 'Sidebar',
+                    'btn-refresh': 'Refresh preview',
+                    'btn-theme': 'Edit theme',
+                    'btn-newtab': 'Open in new tab',
+                    'contact-heading': 'Contact information',
+                    'contact-label': 'Email or mobile phone number',
+                    'newsletter': 'Email me with news and offers',
+                    'delivery-heading': 'Delivery method',
+                    'delivery-ship': 'Ship',
+                    'delivery-ship-note': 'Digital activation in 5-7 min',
+                    'delivery-pickup': 'Pick up',
+                    'delivery-pickup-note': 'Support via WhatsApp or email',
+                    'shipping-heading': 'Shipping address',
+                    'summary-includes': 'This plan includes:',
+                    'footer-help': 'Need help? Message us on WhatsApp',
+                },
+                fr: {
+                    'nav-home': 'Accueil',
+                    'nav-pricing': 'Tarifs',
+                    'nav-movies': 'Films et séries',
+                    'nav-faq': 'FAQ',
+                    'nav-contact': 'Contact',
+                    'preview-eyebrow': 'Vue live',
+                    'preview-title': 'Aperçu complet du site',
+                    'preview-desc': 'Affiche le site public (index) dans le panel et saute vers l’édition en un clic.',
+                    'btn-sidebar': 'Sidebar',
+                    'btn-refresh': 'Rafraîchir l’aperçu',
+                    'btn-theme': 'Éditer thème',
+                    'btn-newtab': 'Ouvrir dans un nouvel onglet',
+                    'contact-heading': 'Informations de contact',
+                    'contact-label': 'Email ou numéro de téléphone',
+                    'newsletter': 'Recevoir les offres par email',
+                    'delivery-heading': 'Mode de livraison',
+                    'delivery-ship': 'Envoi',
+                    'delivery-ship-note': 'Activation digitale en 5-7 min',
+                    'delivery-pickup': 'Pick up',
+                    'delivery-pickup-note': 'Support WhatsApp ou e-mail',
+                    'shipping-heading': 'Adresse de livraison',
+                    'summary-includes': 'Ce plan inclut :',
+                    'footer-help': 'Besoin d’aide ? Écris-nous sur WhatsApp',
+                },
+            };
+
+            const els = Array.from(document.querySelectorAll('[data-i18n-key]'));
+            const applyLang = (target) => {
+                const pack = translations[target] || {};
+                els.forEach((el) => {
+                    const key = el.dataset.i18nKey;
+                    const raw = pack[key] ?? el.dataset.i18nDefault ?? el.textContent;
+                    if (!raw) return;
+                    const text = raw
+                        .replace('{year}', el.dataset.i18nYear || new Date().getFullYear())
+                        .replace('{brand}', el.dataset.i18nBrand || 'ABDO IPTV');
+                    if (el.dataset.i18nHtml === 'true') {
+                        el.innerHTML = text;
+                    } else {
+                        el.textContent = text;
+                    }
+                });
+                document.querySelectorAll('[data-lang-switch]').forEach((btn) => {
+                    btn.classList.toggle('active', btn.dataset.langSwitch === target);
+                });
+            };
+
+            document.querySelectorAll('[data-lang-switch]').forEach((btn) => {
+                btn.addEventListener('click', () => {
+                    const target = btn.dataset.langSwitch === 'fr' ? 'fr' : 'en';
+                    const url = new URL(window.location.href);
+                    url.searchParams.set('lang', target);
+                    window.location.href = url.toString();
+                });
+            });
+
+            applyLang(lang);
+
+            // Hide/show header on scroll
+            const checkoutHeader = document.querySelector('.checkout-header');
+            checkoutHeader?.classList.remove('hidden');
+            let lastScroll = window.scrollY;
+            let ticking = false;
+            const threshold = 40;
+            const delta = 5;
+
+            const syncScroll = () => {
+                lastScroll = window.scrollY;
+            };
+
+            window.addEventListener('pageshow', () => {
+                checkoutHeader?.classList.remove('hidden');
+                syncScroll();
+            });
+
+            const updateHeader = () => {
+                if (!checkoutHeader) {
+                    ticking = false;
+                    return;
+                }
+                const current = window.scrollY;
+                if (current - lastScroll > delta && current > threshold) {
+                    checkoutHeader.classList.add('hidden');
+                } else if (lastScroll - current > delta || current <= threshold) {
+                    checkoutHeader.classList.remove('hidden');
+                }
+                lastScroll = current;
+                ticking = false;
+            };
+
+            window.addEventListener('scroll', () => {
+                if (!ticking) {
+                    window.requestAnimationFrame(updateHeader);
+                    ticking = true;
+                }
+            }, { passive: true });
+        })();
     </script>
     <script src="<?= $assetBase ?>/js/main.js?v=<?= time() ?>" defer></script>
     <script src="<?= $publicBase ?>/modals.js"></script>
