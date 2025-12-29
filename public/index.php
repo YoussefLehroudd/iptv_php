@@ -42,7 +42,21 @@ $songs = getSongs($pdo);
 $songDefaultVolume = (int) ($settings['song_default_volume'] ?? 40);
 $songDefaultMuted = ($settings['song_default_muted'] ?? '1') === '1';
 $contactSuccess = isset($_GET['contact']) && $_GET['contact'] === 'success';
-$lang = (isset($_GET['lang']) && $_GET['lang'] === 'fr') ? 'fr' : 'en';
+$lang = 'en';
+if (isset($_GET['lang'])) {
+    $lang = $_GET['lang'] === 'fr' ? 'fr' : 'en';
+} elseif (!empty($_COOKIE['site_lang'])) {
+    $lang = strtolower((string) $_COOKIE['site_lang']) === 'fr' ? 'fr' : 'en';
+}
+if (!isset($_COOKIE['site_lang']) || $_COOKIE['site_lang'] !== $lang) {
+    setcookie('site_lang', $lang, [
+        'expires' => time() + 365 * 24 * 60 * 60,
+        'path' => '/',
+        'secure' => (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off'),
+        'httponly' => false,
+        'samesite' => 'Lax',
+    ]);
+}
 
 
 if (empty($_SESSION['csrf_token'])) {
@@ -717,7 +731,7 @@ $faqs = [
 
                         </ul>
 
-                        <a class="btn primary" href="<?= $basePath ?>/checkout?offer=<?= (int) $offer['id'] ?>" data-i18n-key="offers-buy" data-i18n-default="Buy now">Buy now</a>
+                        <a class="btn primary" href="<?= $basePath ?>/checkout?offer=<?= (int) $offer['id'] ?>&lang=<?= e($lang) ?>" data-i18n-key="offers-buy" data-i18n-default="Buy now" data-keep-lang>Buy now</a>
 
                         <small data-i18n-key="offers-ready" data-i18n-default="Ready in 5-7 min · WhatsApp">Ready in 5-7 min · WhatsApp</small>
 
@@ -1082,8 +1096,11 @@ $faqs = [
         (function () {
             const serverLang = <?= json_encode($lang) ?>;
             const urlLang = new URLSearchParams(window.location.search).get('lang');
-            const storedLang = localStorage.getItem('site-lang');
-            const initialLang = urlLang === 'fr' ? 'fr' : urlLang === 'en' ? 'en' : storedLang === 'fr' ? 'fr' : storedLang === 'en' ? 'en' : serverLang;
+            const cookieLangMatch = document.cookie.match(/(?:^|; )site_lang=(fr|en)/i);
+            const cookieLang = cookieLangMatch ? cookieLangMatch[1].toLowerCase() : null;
+            const storedLang = (localStorage.getItem('site-lang') || '').toLowerCase();
+            const normalize = (value) => (value === 'fr' ? 'fr' : value === 'en' ? 'en' : null);
+            const initialLang = normalize((urlLang || '').toLowerCase()) || normalize(storedLang) || normalize(cookieLang) || normalize(serverLang) || 'en';
 
             const translations = {
                 en: {
@@ -1130,8 +1147,8 @@ $faqs = [
                     'contact-subject': 'Subject',
                     'contact-fullname': 'Full name',
                     'contact-email': 'Email',
-                    'contact-phone': 'Phone'
-                    'contact-whatsapp': 'WhatsApp'
+                    'contact-phone': 'Phone',
+                    'contact-whatsapp': 'WhatsApp',
                     'contact-city': 'City',
                     'contact-message': 'Message',
                     'contact-submit': 'Send',
@@ -1215,6 +1232,23 @@ $faqs = [
                 },
             };
 
+            const persistLang = (target) => {
+                localStorage.setItem('site-lang', target);
+                document.cookie = `site_lang=${target};path=/;max-age=31536000;samesite=lax`;
+            };
+
+            const syncLangLinks = (target) => {
+                document.querySelectorAll('[data-keep-lang]').forEach((link) => {
+                    try {
+                        const url = new URL(link.href, window.location.origin);
+                        url.searchParams.set('lang', target);
+                        link.href = url.toString();
+                    } catch (e) {
+                        // Ignore invalid URLs
+                    }
+                });
+            };
+
             const els = Array.from(document.querySelectorAll('[data-i18n-key]'));
             const applyLang = (target) => {
                 const pack = translations[target] || translations[serverLang] || translations.en;
@@ -1236,7 +1270,8 @@ $faqs = [
                     btn.classList.toggle('active', btn.dataset.langSwitch === target);
                 });
                 document.documentElement.setAttribute('lang', target);
-                localStorage.setItem('site-lang', target);
+                persistLang(target);
+                syncLangLinks(target);
                 const url = new URL(window.location.href);
                 url.searchParams.set('lang', target);
                 window.history.replaceState({}, '', url.toString());

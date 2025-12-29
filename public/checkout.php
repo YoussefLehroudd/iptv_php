@@ -20,10 +20,21 @@ $isAjax = (isset($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP
 
 $lang = 'en';
 if (!empty($_GET['lang'])) {
-    $lang = strtolower($_GET['lang']) === 'fr' ? 'fr' : 'en';
-    $_SESSION['checkout_lang'] = $lang;
+    $lang = strtolower((string) $_GET['lang']) === 'fr' ? 'fr' : 'en';
+} elseif (!empty($_COOKIE['site_lang'])) {
+    $lang = strtolower((string) $_COOKIE['site_lang']) === 'fr' ? 'fr' : 'en';
 } elseif (!empty($_SESSION['checkout_lang'])) {
-    $lang = $_SESSION['checkout_lang'];
+    $lang = $_SESSION['checkout_lang'] === 'fr' ? 'fr' : 'en';
+}
+$_SESSION['checkout_lang'] = $lang;
+if (!isset($_COOKIE['site_lang']) || $_COOKIE['site_lang'] !== $lang) {
+    setcookie('site_lang', $lang, [
+        'expires' => time() + 365 * 24 * 60 * 60,
+        'path' => '/',
+        'secure' => (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off'),
+        'httponly' => false,
+        'samesite' => 'Lax',
+    ]);
 }
 
 
@@ -375,11 +386,11 @@ $seoDescription = 'Complète ta commande ' . $offerName . ' (' . $offerDuration 
                 </div>
                 <div class="nav-wrapper">
                     <nav class="site-nav">
-                        <a href="<?= $basePath ?>/#top" data-i18n-key="nav-home" data-i18n-default="Home"><?= e($navText['home']) ?></a>
-                        <a href="<?= $basePath ?>/#offres" data-i18n-key="nav-pricing" data-i18n-default="Pricing"><?= e($navText['pricing']) ?></a>
-                        <a href="<?= $basePath ?>/#movies" data-i18n-key="nav-movies" data-i18n-default="Movies"><?= e($navText['movies']) ?></a>
-                        <a href="<?= $basePath ?>/#faq" data-i18n-key="nav-faq" data-i18n-default="FAQ"><?= e($navText['faq']) ?></a>
-                        <a href="<?= $basePath ?>/#support" data-i18n-key="nav-contact" data-i18n-default="Contact"><?= e($navText['contact']) ?></a>
+                        <a href="<?= $basePath ?>/?lang=<?= e($lang) ?>#top" data-i18n-key="nav-home" data-i18n-default="Home" data-keep-lang><?= e($navText['home']) ?></a>
+                        <a href="<?= $basePath ?>/?lang=<?= e($lang) ?>#offres" data-i18n-key="nav-pricing" data-i18n-default="Pricing" data-keep-lang><?= e($navText['pricing']) ?></a>
+                        <a href="<?= $basePath ?>/?lang=<?= e($lang) ?>#movies" data-i18n-key="nav-movies" data-i18n-default="Movies" data-keep-lang><?= e($navText['movies']) ?></a>
+                        <a href="<?= $basePath ?>/?lang=<?= e($lang) ?>#faq" data-i18n-key="nav-faq" data-i18n-default="FAQ" data-keep-lang><?= e($navText['faq']) ?></a>
+                        <a href="<?= $basePath ?>/?lang=<?= e($lang) ?>#support" data-i18n-key="nav-contact" data-i18n-default="Contact" data-keep-lang><?= e($navText['contact']) ?></a>
                     </nav>
                     <div class="lang-switch" aria-label="Language">
                         <button type="button" data-lang-switch="en" class="<?= $lang === 'en' ? 'active' : '' ?>">EN</button>
@@ -574,7 +585,7 @@ $seoDescription = 'Complète ta commande ' . $offerName . ' (' . $offerDuration 
                     <div class="checkout-actions">
                         <button type="submit" class="btn primary" data-card-submit>Pay now</button>
                         <button type="button" class="btn outline connect-wallet" data-crypto-btn>Buy with crypto</button>
-                        <a href="<?= $basePath ?>/#offres" class="link-light">Return to offers</a>
+                        <a href="<?= $basePath ?>/?lang=<?= e($lang) ?>#offres" class="link-light" data-keep-lang>Return to offers</a>
                     </div>
                     <p class="input-error" data-payment-error></p>
                 </form>
@@ -584,7 +595,7 @@ $seoDescription = 'Complète ta commande ' . $offerName . ' (' . $offerDuration 
                             <p>Contact us directly on WhatsApp to complete your order.</p>
                             <div class="checkout-actions">
                                 <a class="btn primary" href="<?= e($whatsappLink) ?>" target="_blank" rel="noopener">Order via WhatsApp</a>
-                                <a href="<?= $basePath ?>/#offres" class="link-light">Back to offers</a>
+                                <a href="<?= $basePath ?>/?lang=<?= e($lang) ?>#offres" class="link-light" data-keep-lang>Back to offers</a>
                             </div>
                         </div>
                     <?php endif; ?>
@@ -722,6 +733,23 @@ $seoDescription = 'Complète ta commande ' . $offerName . ' (' . $offerDuration 
                 },
             };
 
+            const persistLang = (target) => {
+                localStorage.setItem('site-lang', target);
+                document.cookie = `site_lang=${target};path=/;max-age=31536000;samesite=lax`;
+            };
+
+            const syncLangLinks = (target) => {
+                document.querySelectorAll('[data-keep-lang]').forEach((link) => {
+                    try {
+                        const url = new URL(link.href, window.location.origin);
+                        url.searchParams.set('lang', target);
+                        link.href = url.toString();
+                    } catch (e) {
+                        // Ignore invalid URLs
+                    }
+                });
+            };
+
             const els = Array.from(document.querySelectorAll('[data-i18n-key]'));
             const applyLang = (target) => {
                 const pack = translations[target] || {};
@@ -741,11 +769,15 @@ $seoDescription = 'Complète ta commande ' . $offerName . ' (' . $offerDuration 
                 document.querySelectorAll('[data-lang-switch]').forEach((btn) => {
                     btn.classList.toggle('active', btn.dataset.langSwitch === target);
                 });
+                document.documentElement.setAttribute('lang', target);
+                persistLang(target);
+                syncLangLinks(target);
             };
 
             document.querySelectorAll('[data-lang-switch]').forEach((btn) => {
                 btn.addEventListener('click', () => {
                     const target = btn.dataset.langSwitch === 'fr' ? 'fr' : 'en';
+                    persistLang(target);
                     const url = new URL(window.location.href);
                     url.searchParams.set('lang', target);
                     window.location.href = url.toString();
