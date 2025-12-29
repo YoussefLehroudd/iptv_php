@@ -1864,13 +1864,18 @@ $editingTestimonial = $editing['testimonials'];
             <section class="admin-section">
                 <h2>Messages contact</h2>
                     <div class="list" data-messages-root>
-                    <?php foreach ($messages as $message): ?>
+                        <?php foreach ($messages as $message): ?>
                         <article class="message <?= $message['is_read'] ? 'read' : '' ?>">
                             <header>
                                 <strong><?= e($message['full_name']) ?></strong>
                                 <span><?= e($message['email']) ?></span>
                                 <span><?= e($message['created_at']) ?></span>
                             </header>
+                            <p class="message-meta">
+                                <?php if (!empty($message['phone'])): ?>
+                                    <strong>Téléphone:</strong> <?= e($message['phone']) ?>
+                                <?php endif; ?>
+                            </p>
                             <p><?= nl2br(e($message['message'])) ?></p>
                             <div class="message-actions">
                                 <?php if (!$message['is_read']): ?>

@@ -1004,19 +1004,24 @@ $faqs = [
 
                     <form action="<?= $publicBase ?>/contact_submit.php" method="POST" class="contact-form">
 
-                        <input type="hidden" name="csrf_token" value="<?= e($_SESSION['csrf_token']) ?>">
+                        <input type="hidden" name="csrf_token" value="<?= e($_SESSION['csrf_token']) ?>">   
 
-                        <label data-i18n-key="contact-fullname" data-i18n-default="Full name">Full name<input type="text" name="full_name" required></label>
+                        <label for="contact_full_name" data-i18n-key="contact-fullname" data-i18n-default="Full name">Full name</label>
+                        <input id="contact_full_name" type="text" name="full_name" required>
 
-                        <label data-i18n-key="contact-email" data-i18n-default="Email">Email<input type="email" name="email" required></label>
+                        <label for="contact_email" data-i18n-key="contact-email" data-i18n-default="Email">Email</label>
+                        <input id="contact_email" type="email" name="email" required>
 
-                        <label data-i18n-key="contact-phone" data-i18n-default="Phone">Phone<input type="text" name="phone"></label>
+                        <label for="contact_phone" data-i18n-key="contact-phone" data-i18n-default="Phone">Phone</label>
+                        <input id="contact_phone" type="text" name="phone">
 
-                        <label data-i18n-key="contact-message" data-i18n-default="Message">Message<textarea name="message" rows="4" required></textarea></label>
+                        <label for="contact_message" data-i18n-key="contact-message" data-i18n-default="Message">Message</label>
+                        <textarea id="contact_message" name="message" rows="4" required></textarea>
 
                         <button type="submit" class="btn primary" data-i18n-key="contact-submit" data-i18n-default="Send">Send</button>
 
                     </form>
+                    <p class="contact-status" data-contact-status hidden></p>
 
                 </div>
 
@@ -1212,6 +1217,8 @@ $faqs = [
                     'contact-fullname': 'Nom complet',
                     'contact-email': 'Email',
                     'contact-phone': 'Téléphone',
+                    'contact-whatsapp': 'WhatsApp',
+                    'contact-city': 'Ville',
                     'contact-message': 'Message',
                     'contact-submit': 'Envoyer',
                     'footer-note': '© {year} {brand} · IPTV sécurisée Canada · Tous droits réservés.',
@@ -1291,6 +1298,62 @@ $faqs = [
     </script>
 
     <script src="<?= $assetBase ?>/js/main.js?v=<?= time() ?>" defer></script>
+
+    <script>
+        (function () {
+            const form = document.querySelector('.contact-form');
+            if (!form) return;
+            const statusEl = document.querySelector('[data-contact-status]');
+            const endpoint = form.getAttribute('action') || '';
+            let hideTimer = null;
+
+            const setStatus = (message, type = 'info') => {
+                if (hideTimer) {
+                    clearTimeout(hideTimer);
+                    hideTimer = null;
+                }
+                if (!statusEl) return;
+                statusEl.textContent = message || '';
+                statusEl.classList.remove('success', 'error');
+                if (type === 'success') statusEl.classList.add('success');
+                if (type === 'error') statusEl.classList.add('error');
+                statusEl.hidden = !message;
+                if (type === 'success' && message) {
+                    hideTimer = setTimeout(() => {
+                        statusEl.hidden = true;
+                        statusEl.textContent = '';
+                        statusEl.classList.remove('success', 'error');
+                    }, 4000);
+                }
+            };
+
+            form.addEventListener('submit', async (event) => {
+                event.preventDefault();
+                const data = new FormData(form);
+                data.append('ajax', '1');
+                setStatus('Sending...', 'info');
+                try {
+                    const response = await fetch(endpoint, {
+                        method: 'POST',
+                        body: data,
+                        headers: {
+                            'X-Requested-With': 'XMLHttpRequest',
+                        },
+                    });
+                    const result = await response.json().catch(() => ({}));
+                    if (result && result.success) {
+                        setStatus('Message sent. Thank you!', 'success');
+                        form.reset();
+                    } else {
+                        const error = (result && result.error) || 'Message not sent. Please try again.';
+                        setStatus(error, 'error');
+                    }
+                } catch (e) {
+                    setStatus('Message not sent. Please try again.', 'error');
+                }
+            });
+        })();
+    </script>
 
 </body>
 

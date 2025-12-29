@@ -19,6 +19,11 @@ body.checkout-page * {
     user-select: text;
 }
 
+.contact-form,
+.contact-form * {
+    user-select: text;
+}
+
 body.checkout-page {
     display: flex;
     flex-direction: column;
@@ -83,9 +88,13 @@ body::after {
     }
 }
 
-img {
+.testimonials img {
     max-width: 100%;
     display: block;
+    width: 120px;
+    height: 120px;
+    object-fit: cover;
+    border-radius: 16px;
 }
 
 .noise {
@@ -1903,25 +1912,78 @@ img {
     background: var(--card);
     border: 1px solid rgba(255, 255, 255, 0.08);
     border-radius: 32px;
-    padding: 2rem;
+    padding: 1.5rem;
+    max-width: 960px;
+    margin: 0 auto;
 }
 
 .contact-form {
     display: grid;
-    gap: 0.8rem;
-    margin-top: 1rem;
+    gap: 0.75rem;
+    margin-top: 0.5rem;
+}
+
+.contact-form label {
+    display: block;
+    margin: 8px 0 4px;
+    color: rgba(255, 255, 255, 0.82);
+    font-size: 13px;
+    font-weight: 600;
 }
 
 .contact-form input,
 .contact-form textarea {
+    display: block;
     width: 100%;
+    margin-top: 4px;
+    padding: 10px 12px;
     border-radius: 12px;
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    background: rgba(255, 255, 255, 0.04);
-    padding: 0.8rem 1rem;
-    color: var(--text-primary);
+    background: rgba(255, 255, 255, 0.16);
+    border: 1px solid rgba(255, 255, 255, 0.4);
+    color: #fff;
+    outline: none;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+    box-shadow: 0 14px 36px rgba(0, 0, 0, 0.35);
+    min-height: 44px;
 }
 
+.contact-form input::placeholder,
+.contact-form textarea::placeholder {
+    color: rgba(255, 255, 255, 0.55);
+}
+
+.contact-form input:focus,
+.contact-form textarea:focus {
+    border-color: rgba(124, 58, 237, 0.9);
+    box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.32), 0 16px 40px rgba(0, 0, 0, 0.4);
+    background: rgba(255, 255, 255, 0.2);
+}
+
+.contact-form textarea {
+    min-height: 110px;
+}
+
+.contact-status {
+    margin-top: 0.75rem;
+    font-size: 14px;
+    padding: 0.75rem 0.9rem;
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    color: var(--text-secondary);
+}
+
+.contact-status.success {
+    background: rgba(74, 222, 128, 0.12);
+    border-color: rgba(74, 222, 128, 0.35);
+    color: #63e193;
+}
+
+.contact-status.error {
+    background: rgba(252, 165, 165, 0.12);
+    border-color: rgba(252, 165, 165, 0.35);
+    color: #fca5a5;
+}
 .analytics ul {
     list-style: none;
     display: grid;

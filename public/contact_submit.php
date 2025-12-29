@@ -4,6 +4,11 @@ session_start();
 
 require_once __DIR__ . '/../includes/functions.php';
 
+$isAjax = (
+    (isset($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest') ||
+    (isset($_POST['ajax']) && $_POST['ajax'] === '1')
+);
+
 function redirectWithStatus(string $status): void
 {
     $target = '';
@@ -36,6 +41,11 @@ function redirectWithStatus(string $status): void
 }
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+    if ($isAjax) {
+        header('Content-Type: application/json');
+        echo json_encode(['success' => false, 'error' => 'Invalid request method.']);
+        exit;
+    }
     redirectWithStatus('error');
 }
 
@@ -46,6 +56,11 @@ $pdo = require __DIR__ . '/../config/database.php';
 $token = $_POST['csrf_token'] ?? '';
 if (empty($_SESSION['csrf_token']) || !hash_equals($_SESSION['csrf_token'], $token)) {
     http_response_code(403);
+    if ($isAjax) {
+        header('Content-Type: application/json');
+        echo json_encode(['success' => false, 'error' => 'CSRF token invalid.']);
+        exit;
+    }
     exit('Jeton CSRF invalide.');
 }
 
@@ -55,6 +70,11 @@ $phone = trim($_POST['phone'] ?? '');
 $message = trim($_POST['message'] ?? '');
 
 if (!$fullName || !$email || !$message) {
+    if ($isAjax) {
+        header('Content-Type: application/json');
+        echo json_encode(['success' => false, 'error' => 'Missing required fields.']);
+        exit;
+    }
     redirectWithStatus('error');
 }
 
@@ -66,5 +86,11 @@ $stmt->execute([
     'message' => $message,
     'is_read' => 0,
 ]);
+
+if ($isAjax) {
+    header('Content-Type: application/json');
+    echo json_encode(['success' => true]);
+    exit;
+}
 
 redirectWithStatus('success');

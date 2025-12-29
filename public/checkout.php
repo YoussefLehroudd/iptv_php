@@ -365,7 +365,7 @@ $seoDescription = 'Complète ta commande ' . $offerName . ' (' . $offerDuration 
 </head>
 <body class="checkout-page">
     <div class="noise"></div>
-    <header class="checkout-header">
+    <header class="checkout-header" id="top">
         <div class="header-shell">
             <div class="site-header">
                 <div class="logo">
@@ -384,22 +384,34 @@ $seoDescription = 'Complète ta commande ' . $offerName . ' (' . $offerDuration 
                         <small><?= e($brandTagline) ?></small>
                     </div>
                 </div>
-                <div class="nav-wrapper">
-                    <nav class="site-nav">
+
+                <button class="menu-toggle" type="button" aria-expanded="false" aria-controls="siteNav" data-menu-toggle>
+                    <span class="sr-only">Open menu</span>
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                </button>
+
+                <div class="nav-wrapper" data-menu-panel>
+                    <nav id="siteNav" class="site-nav">
                         <a href="<?= $basePath ?>/?lang=<?= e($lang) ?>#top" data-i18n-key="nav-home" data-i18n-default="Home" data-keep-lang><?= e($navText['home']) ?></a>
                         <a href="<?= $basePath ?>/?lang=<?= e($lang) ?>#offres" data-i18n-key="nav-pricing" data-i18n-default="Pricing" data-keep-lang><?= e($navText['pricing']) ?></a>
                         <a href="<?= $basePath ?>/?lang=<?= e($lang) ?>#movies" data-i18n-key="nav-movies" data-i18n-default="Movies" data-keep-lang><?= e($navText['movies']) ?></a>
                         <a href="<?= $basePath ?>/?lang=<?= e($lang) ?>#faq" data-i18n-key="nav-faq" data-i18n-default="FAQ" data-keep-lang><?= e($navText['faq']) ?></a>
                         <a href="<?= $basePath ?>/?lang=<?= e($lang) ?>#support" data-i18n-key="nav-contact" data-i18n-default="Contact" data-keep-lang><?= e($navText['contact']) ?></a>
                     </nav>
+
                     <div class="lang-switch" aria-label="Language">
                         <button type="button" data-lang-switch="en" class="<?= $lang === 'en' ? 'active' : '' ?>">EN</button>
                         <button type="button" data-lang-switch="fr" class="<?= $lang === 'fr' ? 'active' : '' ?>">FR</button>
                     </div>
+
+                    <a class="btn primary header-cta" href="<?= e(getWhatsappLink($supportWhatsappNumber, 'Free Trial')) ?>" target="_blank" rel="noopener" data-i18n-key="btn-free-trial" data-i18n-default="Free Trial">Free Trial</a>
                 </div>
             </div>
         </div>
     </header>
+    <div class="mobile-nav-backdrop" data-menu-backdrop hidden></div>
     <main class="checkout-main">
         <section class="payment-checkout" data-animate>
             <div class="payment-card">
@@ -687,6 +699,7 @@ $seoDescription = 'Complète ta commande ' . $offerName . ' (' . $offerDuration 
                     'nav-movies': 'Movies',
                     'nav-faq': 'FAQ',
                     'nav-contact': 'Contact',
+                    'btn-free-trial': 'Free Trial',
                     'preview-eyebrow': 'Live preview',
                     'preview-title': 'Full site preview',
                     'preview-desc': 'See the public site (index) and jump to edits in one click.',
@@ -712,6 +725,7 @@ $seoDescription = 'Complète ta commande ' . $offerName . ' (' . $offerDuration 
                     'nav-movies': 'Films et séries',
                     'nav-faq': 'FAQ',
                     'nav-contact': 'Contact',
+                    'btn-free-trial': 'Essai gratuit',
                     'preview-eyebrow': 'Vue live',
                     'preview-title': 'Aperçu complet du site',
                     'preview-desc': 'Affiche le site public (index) dans le panel et saute vers l’édition en un clic.',
@@ -777,10 +791,10 @@ $seoDescription = 'Complète ta commande ' . $offerName . ' (' . $offerDuration 
             document.querySelectorAll('[data-lang-switch]').forEach((btn) => {
                 btn.addEventListener('click', () => {
                     const target = btn.dataset.langSwitch === 'fr' ? 'fr' : 'en';
-                    persistLang(target);
+                    applyLang(target);
                     const url = new URL(window.location.href);
                     url.searchParams.set('lang', target);
-                    window.location.href = url.toString();
+                    window.history.replaceState({}, '', url.toString());
                 });
             });
 
