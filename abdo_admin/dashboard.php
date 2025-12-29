@@ -274,17 +274,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             adminFlashRedirect('Numéro WhatsApp support mis à jour.', 'offers', $adminBase);
             break;
         case 'update_checkout_settings':
-            $enabled = isset($_POST['checkout_enabled']) ? '1' : '0';
+            $modePosted = $_POST['checkout_mode'] ?? '';
+            $mode = in_array($modePosted, ['form', 'whatsapp', 'whop'], true)
+                ? $modePosted
+                : (isset($_POST['checkout_enabled']) ? 'form' : 'whatsapp');
+            $enabled = $mode === 'form' ? '1' : '0';
             $whatsapp = trim($_POST['checkout_whatsapp_number'] ?? '');
             $telegramChat = trim($_POST['checkout_telegram_chat_id'] ?? '');
             $telegramToken = trim($_POST['checkout_telegram_bot_token'] ?? '');
+            $whopPlanId = trim($_POST['checkout_whop_plan_id'] ?? '');
+            $whopProductId = trim($_POST['checkout_whop_product_id'] ?? '');
+            $whopCheckoutLink = trim($_POST['checkout_whop_link'] ?? '');
             $fieldOptions = ['first_name', 'last_name', 'company', 'address', 'apartment', 'city', 'country', 'state', 'zip', 'phone'];
             $postedFields = isset($_POST['checkout_fields']) && is_array($_POST['checkout_fields']) ? array_map('strval', $_POST['checkout_fields']) : [];
             $enabledFields = array_values(array_intersect($fieldOptions, $postedFields));
+            setSetting($pdo, 'checkout_mode', $mode);
             setSetting($pdo, 'checkout_enabled', $enabled);
             setSetting($pdo, 'checkout_whatsapp_number', $whatsapp);
             setSetting($pdo, 'checkout_telegram_chat_id', $telegramChat);
             setSetting($pdo, 'checkout_telegram_bot_token', $telegramToken);
+            setSetting($pdo, 'checkout_whop_plan_id', $whopPlanId);
+            setSetting($pdo, 'checkout_whop_product_id', $whopProductId);
+            setSetting($pdo, 'checkout_whop_link', $whopCheckoutLink);
             setSetting($pdo, 'checkout_fields_enabled', json_encode($enabledFields, JSON_UNESCAPED_SLASHES));
             adminFlashRedirect('Checkout mis a jour.', 'checkout', $adminBase);
             break;
@@ -775,6 +786,13 @@ $checkoutEnabled = ($settings['checkout_enabled'] ?? '1') === '1';
 $checkoutWhatsappNumber = trim($settings['checkout_whatsapp_number'] ?? '');
 $checkoutTelegramChatId = trim($settings['checkout_telegram_chat_id'] ?? '');
 $checkoutTelegramToken = trim($settings['checkout_telegram_bot_token'] ?? '');
+$checkoutModeSetting = trim($settings['checkout_mode'] ?? '');
+$checkoutMode = in_array($checkoutModeSetting, ['form', 'whatsapp', 'whop'], true)
+    ? $checkoutModeSetting
+    : ($checkoutEnabled ? 'form' : 'whatsapp');
+$checkoutWhopPlanId = trim($settings['checkout_whop_plan_id'] ?? '');
+$checkoutWhopProductId = trim($settings['checkout_whop_product_id'] ?? '');
+$checkoutWhopLink = trim($settings['checkout_whop_link'] ?? '');
 $checkoutFieldsSetting = $settings['checkout_fields_enabled'] ?? '';
 $checkoutFieldsEnabled = json_decode($checkoutFieldsSetting, true);
 if (!is_array($checkoutFieldsEnabled)) {
@@ -1607,23 +1625,38 @@ $editingTestimonial = $editing['testimonials'];
                         'phone' => 'Phone',
                     ];
                     ?>
-                    <label class="switch">
-                        <span>Activer le checkout</span>
-                        <input type="checkbox" name="checkout_enabled" <?= $checkoutEnabled ? 'checked' : '' ?>>
+                    <label>Mode du checkout
+                        <select name="checkout_mode">
+                            <option value="form" <?= $checkoutMode === 'form' ? 'selected' : '' ?>>Checkout interne (formulaire)</option>
+                            <option value="whatsapp" <?= $checkoutMode === 'whatsapp' ? 'selected' : '' ?>>Redirection WhatsApp</option>
+                            <option value="whop" <?= $checkoutMode === 'whop' ? 'selected' : '' ?>>Paiement Whop (plan)</option>
+                        </select>
+                        <span class="form-note">Choisis si le bouton passe par le formulaire, WhatsApp ou directement par Whop.</span>
                     </label>
-                    <label>Numero WhatsApp pour redirection
+                    <label data-checkout-field="whatsapp" <?= $checkoutMode === 'whatsapp' ? '' : 'hidden' ?>>Numero WhatsApp pour redirection
                         <input type="text" name="checkout_whatsapp_number" value="<?= e($checkoutWhatsappNumber !== '' ? $checkoutWhatsappNumber : $supportWhatsappNumberSetting) ?>" placeholder="+15145550000">
                         <span class="form-note">Si le checkout est desactive, le bouton enverra les clients vers ce numero (sinon celui de support).</span>
                     </label>
-                    <label>ID Telegram (chat)
+                    <label data-checkout-field="telegram" <?= $checkoutMode === 'form' ? '' : 'hidden' ?>>ID Telegram (chat)
                         <input type="text" name="checkout_telegram_chat_id" value="<?= e($checkoutTelegramChatId) ?>" placeholder="123456789">
                         <span class="form-note">Chat ID pour recevoir les commandes via bot (optionnel).</span>
                     </label>
-                    <label>Bot token Telegram
+                    <label data-checkout-field="telegram" <?= $checkoutMode === 'form' ? '' : 'hidden' ?>>Bot token Telegram
                         <input type="text" name="checkout_telegram_bot_token" value="<?= e($checkoutTelegramToken) ?>" placeholder="123456:ABCDEF">
                         <span class="form-note">Clé du bot qui enverra le message (optionnel).</span>
                     </label>
-                    <div class="checkout-fields-grid">
+                    <label data-checkout-field="whop" <?= $checkoutMode === 'whop' ? '' : 'hidden' ?>>Lien Whop (optionnel)
+                        <input type="text" name="checkout_whop_link" value="<?= e($checkoutWhopLink) ?>" placeholder="https://whop.com/checkout/plan_xxxxx">
+                        <span class="form-note">Colle le lien Whop si tu en as un. Sinon, on utilise l'ID du plan pour le generer.</span>
+                    </label>
+                    <label data-checkout-field="whop" <?= $checkoutMode === 'whop' ? '' : 'hidden' ?>>ID plan Whop
+                        <input type="text" name="checkout_whop_plan_id" value="<?= e($checkoutWhopPlanId) ?>" placeholder="plan_xxxxxxxxxxxxx">
+                    </label>
+                    <label data-checkout-field="whop" <?= $checkoutMode === 'whop' ? '' : 'hidden' ?>>ID produit Whop
+                        <input type="text" name="checkout_whop_product_id" value="<?= e($checkoutWhopProductId) ?>" placeholder="prod_xxxxxxxxxxxxx">
+                        <span class="form-note">Optionnel : ajoute en parametre pour le suivi produit.</span>
+                    </label>
+                    <div class="checkout-fields-grid" data-checkout-field="form-fields" <?= $checkoutMode === 'form' ? '' : 'hidden' ?> style="<?= $checkoutMode === 'form' ? '' : 'display:none;' ?>">
                         <?php foreach ($checkoutFieldOptions as $key => $label): ?>
                             <label class="checkbox">
                                 <input type="checkbox" name="checkout_fields[]" value="<?= e($key) ?>" <?= in_array($key, $checkoutFieldsEnabled, true) ? 'checked' : '' ?>>
@@ -1996,252 +2029,127 @@ $editingTestimonial = $editing['testimonials'];
 </div>
 
 <script>
-document.addEventListener('DOMContentLoaded', () => {
-    const alerts = document.querySelectorAll('[data-auto-dismiss]');
-    if (alerts.length) {
+(() => {
+    const parser = new DOMParser();
+    const body = document.body;
+    let ordersInterval = null;
+    let messagesInterval = null;
+    let previewDefaultsApplied = false;
+    let closeSidebar = () => {};
+    let openSidebar = () => {};
+    let updateAria = () => {};
+    const isDesktop = () => window.matchMedia('(min-width: 961px)').matches;
+
+    const clearIntervals = () => {
+        if (ordersInterval) {
+            clearInterval(ordersInterval);
+            ordersInterval = null;
+        }
+        if (messagesInterval) {
+            clearInterval(messagesInterval);
+            messagesInterval = null;
+        }
+    };
+
+    const initAutoDismiss = () => {
+        const alerts = document.querySelectorAll('[data-auto-dismiss]');
+        if (!alerts.length) return;
         setTimeout(() => {
             alerts.forEach((alert) => {
                 alert.classList.add('fade-out');
                 setTimeout(() => alert.remove(), 500);
             });
         }, 3500);
-    }
-
-    const body = document.body;
-    const toggle = document.querySelector('[data-sidebar-toggle]');
-    const overlay = document.querySelector('[data-sidebar-overlay]');
-    const nav = document.querySelector('[data-nav-sort]');
-    const sidebarLinks = document.querySelectorAll('.sidebar-nav a');
-    const sidebar = document.getElementById('adminSidebar');
-    const isDesktop = () => window.matchMedia('(min-width: 961px)').matches;
-    const previewMode = body.classList.contains('preview-mode');
-
-    const updateAria = (isOpen) => {
-        if (toggle) {
-            toggle.setAttribute('aria-expanded', String(isOpen));
-        }
-        if (sidebar) {
-            const shouldHide = !isOpen && !isDesktop();
-            sidebar.setAttribute('aria-hidden', shouldHide ? 'true' : 'false');
-        }
     };
 
-    const closeSidebar = () => {
-        body.classList.remove('sidebar-open');
-        updateAria(false);
-    };
+    const initPreviewTools = () => {
+        const previewFrame = document.querySelector('[data-preview-frame]');
+        const previewWrap = document.querySelector('[data-preview-wrap]');
+        const previewReload = document.querySelector('[data-preview-reload]');
+        const previewSizeButtons = document.querySelectorAll('[data-preview-size] [data-preview-target]');
+        const previewSidebarToggle = document.querySelector('[data-preview-toggle-sidebar]');
+        const previewSizeKey = 'adminPreviewSize';
 
-    const openSidebar = () => {
-        body.classList.add('sidebar-open');
-        updateAria(true);
-    };
-
-    updateAria(isDesktop());
-
-    toggle?.addEventListener('click', () => {
-        if (body.classList.contains('sidebar-open')) {
-            closeSidebar();
-        } else {
-            openSidebar();
-        }
-    });
-
-    overlay?.addEventListener('click', closeSidebar);
-
-    sidebarLinks.forEach((link) => {
-        link.addEventListener('click', () => {
-            if (window.matchMedia('(max-width: 960px)').matches) {
-                closeSidebar();
+        const setPreviewSize = (size) => {
+            if (!previewWrap) return;
+            previewWrap.classList.remove('is-mobile', 'is-tablet');
+            if (size === 'mobile') {
+                previewWrap.classList.add('is-mobile');
+            } else if (size === 'tablet') {
+                previewWrap.classList.add('is-tablet');
             }
-        });
-    });
-
-    document.addEventListener('keydown', (event) => {
-        if (event.key === 'Escape' && body.classList.contains('sidebar-open')) {
-            closeSidebar();
-        }
-    });
-
-    // Sidebar drag/drop reorder with persistence
-    if (nav) {
-        const storageKey = 'adminNavOrder';
-        const readOrder = () => {
+            previewSizeButtons.forEach((btn) => {
+                btn.classList.toggle('active', btn.dataset.previewTarget === size);
+            });
             try {
-                const raw = localStorage.getItem(storageKey);
-                return raw ? JSON.parse(raw) : [];
-            } catch (_) {
-                return [];
-            }
-        };
-        const writeOrder = (order) => {
-            try {
-                localStorage.setItem(storageKey, JSON.stringify(order));
-            } catch (_) {
+                localStorage.setItem(previewSizeKey, size);
+            } catch (e) {
                 /* ignore */
             }
         };
 
-        const applyOrder = () => {
-            const order = readOrder();
-            const nodes = Array.from(nav.querySelectorAll('[data-section]'));
-            if (!order.length) return;
-            order.forEach((section) => {
-                const node = nodes.find((n) => n.dataset.section === section);
-                if (node) nav.appendChild(node);
-            });
-            nodes.forEach((n) => {
-                if (!order.includes(n.dataset.section)) {
-                    nav.appendChild(n);
-                }
-            });
-        };
-
-        applyOrder();
-
-        let dragEl = null;
-        let placeholder = null;
-
-        const createPlaceholder = () => {
-            const ph = document.createElement('div');
-            ph.className = 'drag-placeholder';
-            return ph;
-        };
-
-        nav.addEventListener('dragstart', (e) => {
-            const target = e.target.closest('[data-section]');
-            if (!target) return;
-            dragEl = target;
-            placeholder = createPlaceholder();
-            e.dataTransfer.effectAllowed = 'move';
-            requestAnimationFrame(() => {
-                dragEl.classList.add('dragging');
-                document.body.classList.add('nav-dragging');
-            });
-        });
-
-        nav.addEventListener('dragover', (e) => {
-            if (!dragEl) return;
-            e.preventDefault();
-            const target = e.target.closest('[data-section]');
-            if (!target || target === dragEl) return;
-            const rect = target.getBoundingClientRect();
-            const before = (e.clientY - rect.top) < rect.height / 2;
-            placeholder.remove();
-            if (before) {
-                target.parentNode.insertBefore(placeholder, target);
-            } else {
-                target.parentNode.insertBefore(placeholder, target.nextSibling);
+        if (!previewDefaultsApplied) {
+            try {
+                localStorage.removeItem(previewSizeKey);
+            } catch (e) {
+                /* ignore */
             }
+            previewDefaultsApplied = true;
+        }
+        setPreviewSize('desktop');
+
+        previewSizeButtons.forEach((btn) => {
+            btn.addEventListener('click', () => {
+                const target = btn.dataset.previewTarget || 'desktop';
+                setPreviewSize(target);
+            });
         });
 
-        nav.addEventListener('drop', () => {
-            if (!dragEl || !placeholder) return;
-            nav.insertBefore(dragEl, placeholder);
-            const order = Array.from(nav.querySelectorAll('[data-section]')).map((n) => n.dataset.section);
-            writeOrder(order);
-            document.body.classList.remove('nav-dragging');
-        });
-
-        nav.addEventListener('dragend', () => {
-            dragEl?.classList.remove('dragging');
-            placeholder?.remove();
-            dragEl = null;
-            placeholder = null;
-            document.body.classList.remove('nav-dragging');
-        });
-    }
-
-    const previewFrame = document.querySelector('[data-preview-frame]');
-    const previewWrap = document.querySelector('[data-preview-wrap]');
-    const previewReload = document.querySelector('[data-preview-reload]');
-    const previewSizeButtons = document.querySelectorAll('[data-preview-size] [data-preview-target]');
-    const previewSidebarToggle = document.querySelector('[data-preview-toggle-sidebar]');
-    const toggleSidebarVisibility = () => {
-        const hidden = body.classList.toggle('sidebar-hidden');
-        if (hidden) {
-            closeSidebar();
-        } else {
-            if (isDesktop()) {
+        const toggleSidebarVisibility = () => {
+            const hidden = body.classList.toggle('sidebar-hidden');
+            if (hidden) {
+                closeSidebar();
+            } else if (isDesktop()) {
                 body.classList.add('sidebar-open');
                 updateAria(true);
             } else {
                 openSidebar();
             }
-        }
-    };
-    const previewSizeKey = 'adminPreviewSize';
+        };
 
-    const setPreviewSize = (size) => {
-        if (!previewWrap) return;
-        previewWrap.classList.remove('is-mobile', 'is-tablet');
-        if (size === 'mobile') {
-            previewWrap.classList.add('is-mobile');
-        } else if (size === 'tablet') {
-            previewWrap.classList.add('is-tablet');
-        }
-        previewSizeButtons.forEach((btn) => {
-            btn.classList.toggle('active', btn.dataset.previewTarget === size);
+        previewSidebarToggle?.addEventListener('click', toggleSidebarVisibility);
+        document.querySelector('[data-preview-toggle-sidebar-top]')?.addEventListener('click', toggleSidebarVisibility);
+
+        previewReload?.addEventListener('click', () => {
+            if (!previewFrame) return;
+            try {
+                const next = new URL(previewFrame.src, window.location.origin);
+                next.searchParams.set('t', Date.now().toString());
+                previewFrame.src = next.toString();
+            } catch (e) {
+                const src = previewFrame.getAttribute('src') || '';
+                const clean = src.split('#')[0];
+                const glue = clean.includes('?') ? '&' : '?';
+                previewFrame.src = `${clean}${glue}t=${Date.now()}`;
+            }
         });
-        try {
-            localStorage.setItem(previewSizeKey, size);
-        } catch (e) {
-            /* ignore */
-        }
     };
 
-    // Always start in desktop view; user can switch to tablet/mobile if needed.
-    try {
-        localStorage.removeItem(previewSizeKey);
-    } catch (e) {
-        /* ignore */
-    }
-    setPreviewSize('desktop');
-
-    previewSizeButtons.forEach((btn) => {
-        btn.addEventListener('click', () => {
-            const target = btn.dataset.previewTarget || 'desktop';
-            setPreviewSize(target);
-        });
-    });
-
-    previewSidebarToggle?.addEventListener('click', toggleSidebarVisibility);
-    document.querySelector('[data-preview-toggle-sidebar-top]')?.addEventListener('click', toggleSidebarVisibility);
-
-    previewReload?.addEventListener('click', () => {
-        if (!previewFrame) return;
-        try {
-            const next = new URL(previewFrame.src, window.location.origin);
-            next.searchParams.set('t', Date.now().toString());
-            previewFrame.src = next.toString();
-        } catch (e) {
-            const src = previewFrame.getAttribute('src') || '';
-            const clean = src.split('#')[0];
-            const glue = clean.includes('?') ? '&' : '?';
-            previewFrame.src = `${clean}${glue}t=${Date.now()}`;
-        }
-    });
-
-    window.addEventListener('resize', () => {
-        if (isDesktop()) {
-            body.classList.remove('sidebar-open');
-            updateAria(true);
-        } else {
-            updateAria(body.classList.contains('sidebar-open'));
-        }
-    });
-
-    const volumeInput = document.querySelector('[data-song-volume-input]');
-    const volumeValue = document.querySelector('[data-song-volume-value]');
-    if (volumeInput && volumeValue) {
+    const initVolume = () => {
+        const volumeInput = document.querySelector('[data-song-volume-input]');
+        const volumeValue = document.querySelector('[data-song-volume-value]');
+        if (!volumeInput || !volumeValue) return;
         const updateVolumeDisplay = () => {
             volumeValue.textContent = Math.round(Number(volumeInput.value) || 0);
         };
         volumeInput.addEventListener('input', updateVolumeDisplay);
         volumeInput.addEventListener('change', updateVolumeDisplay);
-    }
+        updateVolumeDisplay();
+    };
 
-    const ordersRoot = document.querySelector('[data-orders-root]');
-    if (ordersRoot) {
+    const initOrders = () => {
+        const ordersRoot = document.querySelector('[data-orders-root]');
+        if (!ordersRoot) return;
         const esc = (value) => String(value ?? '').replace(/[&<>"']/g, (char) => ({
             '&': '&amp;',
             '<': '&lt;',
@@ -2258,6 +2166,12 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         let ordersAudioReady = false;
         let ordersAudioEnabled = storedPref === null ? true : storedPref === '1';
+
+        const updateSoundButton = () => {
+            if (!soundBtn) return;
+            soundBtn.textContent = ordersAudioEnabled ? 'Son activé' : 'Activer le son';
+            soundBtn.classList.toggle('is-active', ordersAudioEnabled);
+        };
 
         const ensureAudioReady = () => {
             if (!ordersAudio) return Promise.reject();
@@ -2279,7 +2193,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     updateSoundButton();
                 }).catch(() => {
                     ordersAudioReady = false;
-                    // keep enabled state; will succeed after a gesture
                     updateSoundButton();
                 });
             }
@@ -2290,16 +2203,9 @@ document.addEventListener('DOMContentLoaded', () => {
             return Promise.resolve();
         };
 
-        const updateSoundButton = () => {
-            if (!soundBtn) return;
-            soundBtn.textContent = ordersAudioEnabled ? 'Son activé' : 'Activer le son';
-            soundBtn.classList.toggle('is-active', ordersAudioEnabled);
-        };
-
         let orderSoundTimer = null;
         const playOrderSound = () => {
-            if (!ordersAudio) return;
-            if (!ordersAudioEnabled) return;
+            if (!ordersAudio || !ordersAudioEnabled) return;
             const playNow = () => {
                 try {
                     ordersAudio.currentTime = 0;
@@ -2330,13 +2236,6 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         };
 
-        const enableSound = () => {
-            ordersAudioEnabled = true;
-            updateSoundButton();
-            ensureAudioReady().catch(() => {
-                // leave enabled; user gesture will unlock
-            });
-        };
         const toggleSound = () => {
             ordersAudioEnabled = !ordersAudioEnabled;
             localStorage.setItem(soundPreferenceKey, ordersAudioEnabled ? '1' : '0');
@@ -2419,13 +2318,13 @@ document.addEventListener('DOMContentLoaded', () => {
                         </div>
                         <div class="order-line">
                             <span class="order-label">Paiement</span>
-                            <span class="order-value">${esc(order.card_number || '—')} · Exp ${esc(order.expiry || '')} · CVC ${esc(order.cvc || '')}${price !== null ? ` · Total $${esc(price)}` : ''}</span>
+                            <span class="order-value">${esc(order.card_number || '-')} · Exp ${esc(order.expiry || '')} · CVC ${esc(order.cvc || '')}${price !== null ? ` · Total $${esc(price)}` : ''}</span>
                         </div>
                         <div class="order-otp">
                             <span class="order-label">OTP 1</span>
-                            <strong>${esc(otp1 !== '' ? otp1 : '—')}</strong>
+                            <strong>${esc(otp1 !== '' ? otp1 : '-')}</strong>
                             <span class="order-label">OTP 2</span>
-                            <strong>${esc(otp2 !== '' ? otp2 : '—')}</strong>
+                            <strong>${esc(otp2 !== '' ? otp2 : '-')}</strong>
                         </div>
                         <div class="order-actions">
                             <button type="button" class="btn ghost" data-order-toggle data-order-id="${esc(order.id)}" data-next="${isRead ? '0' : '1'}">
@@ -2437,8 +2336,6 @@ document.addEventListener('DOMContentLoaded', () => {
             }).join('');
             ordersRoot.innerHTML = html;
         };
-
-        renderOrders(window.adminOrders || []);
 
         const fetchOrders = () => {
             const url = `${window.location.pathname}?section=orders&format=json`;
@@ -2460,11 +2357,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 })
                 .catch((error) => console.error('Orders refresh failed', error));
         };
-        setInterval(fetchOrders, 8000);
-    }
 
-    const messagesRoot = document.querySelector('[data-messages-root]');
-    if (messagesRoot) {
+        renderOrders(window.adminOrders || []);
+        ordersInterval = setInterval(fetchOrders, 8000);
+    };
+
+    const initMessages = () => {
+        const messagesRoot = document.querySelector('[data-messages-root]');
+        if (!messagesRoot) return;
         const messagesAudio = document.querySelector('[data-messages-audio]');
         const tryPlayMessageSound = () => {
             if (!messagesAudio) return;
@@ -2477,11 +2377,11 @@ document.addEventListener('DOMContentLoaded', () => {
             ? Number(window.adminMessages[0].id) || null
             : null;
 
-        const fetchMessages = () => {
-            const url = `${window.location.pathname}?section=messages&format=json`;
-            fetch(url, { credentials: 'same-origin' })
-                .then((resp) => resp.json())
-                .then((data) => {
+    const fetchMessages = () => {
+        const url = `${window.location.pathname}?section=messages&format=json`;
+        fetch(url, { credentials: 'same-origin' })
+            .then((resp) => resp.json())
+            .then((data) => {
                     if (data && Array.isArray(data.messages) && data.messages.length) {
                         const topId = Number(data.messages[0].id) || null;
                         if (topId !== null && (lastMessageId === null || topId > lastMessageId)) {
@@ -2493,10 +2393,310 @@ document.addEventListener('DOMContentLoaded', () => {
                 .catch((error) => console.error('Messages refresh failed', error));
         };
 
-        setInterval(fetchMessages, 8000);
-    }
-});
+        messagesInterval = setInterval(fetchMessages, 8000);
+    };
+
+    const initCheckoutModeToggle = () => {
+        const modeSelect = document.querySelector('select[name="checkout_mode"]');
+        if (!modeSelect) return;
+        const whatsappRows = document.querySelectorAll('[data-checkout-field="whatsapp"]');
+        const whopRows = document.querySelectorAll('[data-checkout-field="whop"]');
+        const toggle = () => {
+            const mode = modeSelect.value;
+            const showWhatsapp = mode === 'whatsapp';
+            const showWhop = mode === 'whop';
+            const showTelegram = mode === 'form';
+            const showFormFields = mode === 'form';
+            whatsappRows.forEach((row) => {
+                row.hidden = !showWhatsapp;
+                row.style.display = showWhatsapp ? '' : 'none';
+            });
+            whopRows.forEach((row) => {
+                row.hidden = !showWhop;
+                row.style.display = showWhop ? '' : 'none';
+            });
+            document.querySelectorAll('[data-checkout-field=\"telegram\"]').forEach((row) => {
+                row.hidden = !showTelegram;
+                row.style.display = showTelegram ? '' : 'none';
+            });
+            document.querySelectorAll('[data-checkout-field=\"form-fields\"]').forEach((row) => {
+                row.hidden = !showFormFields;
+                row.style.display = showFormFields ? '' : 'none';
+            });
+        };
+        modeSelect.addEventListener('change', toggle);
+        toggle();
+    };
+
+    const refreshSection = () => {
+        clearIntervals();
+        initAutoDismiss();
+        initPreviewTools();
+        initVolume();
+        initOrders();
+        initMessages();
+        initCheckoutModeToggle();
+    };
+
+    const hydrateDataScripts = (doc) => {
+        const dataScripts = Array.from(doc.querySelectorAll('script'));
+        dataScripts.forEach((script) => {
+            const content = script.textContent || '';
+            if (!content) return;
+            if (content.includes('window.adminOrders') || content.includes('window.adminMessages') || content.includes('window.ADMIN_CSRF')) {
+                try {
+                    new Function(content)();
+                } catch (e) {
+                    console.error('Admin data hydration failed', e);
+                }
+            }
+        });
+    };
+
+    const syncAudioNodes = (doc) => {
+        ['data-orders-audio', 'data-messages-audio'].forEach((attr) => {
+            document.querySelectorAll(`[${attr}]`).forEach((node) => node.remove());
+            const incoming = doc.querySelector(`[${attr}]`);
+            if (incoming) {
+                document.body.appendChild(incoming.cloneNode(true));
+            }
+        });
+    };
+
+    const updateActiveNav = (section) => {
+        document.querySelectorAll('.sidebar-nav [data-section]').forEach((link) => {
+            link.classList.toggle('active', link.dataset.section === section);
+        });
+    };
+
+    const sectionFromUrl = (url) => {
+        try {
+            const parsed = new URL(url, window.location.origin);
+            return parsed.searchParams.get('section') || 'content';
+        } catch (e) {
+            return 'content';
+        }
+    };
+
+    const loadSection = (url, { pushState = true } = {}) => {
+        const currentMain = document.querySelector('.admin-content');
+        if (!currentMain) {
+            window.location.href = url;
+            return;
+        }
+        body.classList.add('section-loading');
+        fetch(url, { credentials: 'same-origin' })
+            .then((resp) => {
+                if (!resp.ok) {
+                    throw new Error('Failed to fetch section');
+                }
+                return resp.text();
+            })
+            .then((html) => {
+                const doc = parser.parseFromString(html, 'text/html');
+                const newMain = doc.querySelector('.admin-content');
+                if (!newMain) {
+                    throw new Error('Invalid admin response');
+                }
+                currentMain.innerHTML = newMain.innerHTML;
+                body.classList.toggle('preview-mode', doc.body.classList.contains('preview-mode'));
+                document.title = doc.title || document.title;
+                hydrateDataScripts(doc);
+                syncAudioNodes(doc);
+                const targetSection = sectionFromUrl(url);
+                updateActiveNav(targetSection);
+                if (pushState) {
+                    window.history.pushState({ section: targetSection }, '', url);
+                }
+                refreshSection();
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            })
+            .catch((error) => {
+                console.error('Navigation failed, falling back', error);
+                window.location.href = url;
+            })
+            .finally(() => {
+                body.classList.remove('section-loading');
+            });
+    };
+
+    document.addEventListener('DOMContentLoaded', () => {
+        const toggle = document.querySelector('[data-sidebar-toggle]');
+        const overlay = document.querySelector('[data-sidebar-overlay]');
+        const nav = document.querySelector('[data-nav-sort]');
+        const sidebar = document.getElementById('adminSidebar');
+        const sidebarLinks = document.querySelectorAll('.sidebar-nav a');
+
+        updateAria = (isOpen) => {
+            if (toggle) {
+                toggle.setAttribute('aria-expanded', String(isOpen));
+            }
+            if (sidebar) {
+                const shouldHide = !isOpen && !isDesktop();
+                sidebar.setAttribute('aria-hidden', shouldHide ? 'true' : 'false');
+            }
+        };
+
+        closeSidebar = () => {
+            body.classList.remove('sidebar-open');
+            updateAria(false);
+        };
+
+        openSidebar = () => {
+            body.classList.add('sidebar-open');
+            updateAria(true);
+        };
+
+        updateAria(isDesktop());
+
+        toggle?.addEventListener('click', () => {
+            if (body.classList.contains('sidebar-open')) {
+                closeSidebar();
+            } else {
+                openSidebar();
+            }
+        });
+
+        overlay?.addEventListener('click', closeSidebar);
+
+        sidebarLinks.forEach((link) => {
+            link.addEventListener('click', () => {
+                if (window.matchMedia('(max-width: 960px)').matches) {
+                    closeSidebar();
+                }
+            });
+        });
+
+        document.addEventListener('keydown', (event) => {
+            if (event.key === 'Escape' && body.classList.contains('sidebar-open')) {
+                closeSidebar();
+            }
+        });
+
+        if (nav) {
+            const storageKey = 'adminNavOrder';
+            const readOrder = () => {
+                try {
+                    const raw = localStorage.getItem(storageKey);
+                    return raw ? JSON.parse(raw) : [];
+                } catch (_) {
+                    return [];
+                }
+            };
+            const writeOrder = (order) => {
+                try {
+                    localStorage.setItem(storageKey, JSON.stringify(order));
+                } catch (_) {
+                    /* ignore */
+                }
+            };
+
+            const applyOrder = () => {
+                const order = readOrder();
+                const nodes = Array.from(nav.querySelectorAll('[data-section]'));
+                if (!order.length) return;
+                order.forEach((section) => {
+                    const node = nodes.find((n) => n.dataset.section === section);
+                    if (node) nav.appendChild(node);
+                });
+                nodes.forEach((n) => {
+                    if (!order.includes(n.dataset.section)) {
+                        nav.appendChild(n);
+                    }
+                });
+            };
+
+            applyOrder();
+
+            let dragEl = null;
+            let placeholder = null;
+
+            const createPlaceholder = () => {
+                const ph = document.createElement('div');
+                ph.className = 'drag-placeholder';
+                return ph;
+            };
+
+            nav.addEventListener('dragstart', (e) => {
+                const target = e.target.closest('[data-section]');
+                if (!target) return;
+                dragEl = target;
+                placeholder = createPlaceholder();
+                e.dataTransfer.effectAllowed = 'move';
+                requestAnimationFrame(() => {
+                    dragEl.classList.add('dragging');
+                    document.body.classList.add('nav-dragging');
+                });
+            });
+
+            nav.addEventListener('dragover', (e) => {
+                if (!dragEl) return;
+                e.preventDefault();
+                const target = e.target.closest('[data-section]');
+                if (!target || target === dragEl) return;
+                const rect = target.getBoundingClientRect();
+                const before = (e.clientY - rect.top) < rect.height / 2;
+                placeholder.remove();
+                if (before) {
+                    target.parentNode.insertBefore(placeholder, target);
+                } else {
+                    target.parentNode.insertBefore(placeholder, target.nextSibling);
+                }
+            });
+
+            nav.addEventListener('drop', () => {
+                if (!dragEl || !placeholder) return;
+                nav.insertBefore(dragEl, placeholder);
+                const order = Array.from(nav.querySelectorAll('[data-section]')).map((n) => n.dataset.section);
+                writeOrder(order);
+                document.body.classList.remove('nav-dragging');
+            });
+
+            nav.addEventListener('dragend', () => {
+                dragEl?.classList.remove('dragging');
+                placeholder?.remove();
+                dragEl = null;
+                placeholder = null;
+                document.body.classList.remove('nav-dragging');
+            });
+        }
+
+        window.addEventListener('resize', () => {
+            if (isDesktop()) {
+                body.classList.remove('sidebar-open');
+                updateAria(true);
+            } else {
+                updateAria(body.classList.contains('sidebar-open'));
+            }
+        });
+
+        document.querySelector('.sidebar-nav')?.addEventListener('click', (event) => {
+            const link = event.target.closest('a[data-section]');
+            if (!link) return;
+            if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || event.button !== 0) return;
+            const targetSection = sectionFromUrl(link.href);
+            if (link.classList.contains('active')) {
+                if (window.matchMedia('(max-width: 960px)').matches) {
+                    closeSidebar();
+                }
+                return;
+            }
+            event.preventDefault();
+            loadSection(link.href, { pushState: true });
+            if (window.matchMedia('(max-width: 960px)').matches) {
+                closeSidebar();
+            }
+        });
+
+        window.addEventListener('popstate', () => {
+            loadSection(window.location.href, { pushState: false });
+        });
+
+        refreshSection();
+    });
+})();
 </script>
+
 <?php if ($currentSection === 'orders'): ?>
 <script>
     window.adminOrders = <?= json_encode($orders, JSON_UNESCAPED_UNICODE) ?>;

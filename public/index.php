@@ -30,6 +30,24 @@ if ($brandLogoMobile === '' && $brandLogoDesktop !== '') {
     $brandLogoMobile = $brandLogoDesktop;
 }
 $supportWhatsappNumber = trim($settings['support_whatsapp_number'] ?? '') ?: ($config['whatsapp_number'] ?? '');
+$checkoutEnabled = ($settings['checkout_enabled'] ?? '1') === '1';
+$checkoutModeSetting = trim($settings['checkout_mode'] ?? '');
+$checkoutMode = in_array($checkoutModeSetting, ['form', 'whatsapp', 'whop'], true)
+    ? $checkoutModeSetting
+    : ($checkoutEnabled ? 'form' : 'whatsapp');
+$checkoutWhatsappNumber = trim($settings['checkout_whatsapp_number'] ?? '') ?: $supportWhatsappNumber;
+$checkoutWhopPlanId = trim($settings['checkout_whop_plan_id'] ?? '');
+$checkoutWhopProductId = trim($settings['checkout_whop_product_id'] ?? '');
+$checkoutWhopLink = trim($settings['checkout_whop_link'] ?? '');
+$whopCheckoutUrl = $checkoutWhopLink !== '' ? $checkoutWhopLink : '';
+if ($whopCheckoutUrl === '' && $checkoutWhopPlanId !== '') {
+    $whopCheckoutUrl = 'https://whop.com/checkout/' . rawurlencode($checkoutWhopPlanId);
+    if ($checkoutWhopProductId !== '') {
+        $whopCheckoutUrl .= '?product_id=' . rawurlencode($checkoutWhopProductId);
+    }
+} elseif ($whopCheckoutUrl === '' && $checkoutWhopProductId !== '') {
+    $whopCheckoutUrl = 'https://whop.com/checkout/' . rawurlencode($checkoutWhopProductId);
+}
 
 $sliders = fetchAllAssoc($pdo, 'SELECT * FROM sliders ORDER BY created_at DESC');
 
@@ -82,6 +100,17 @@ if ($docRoot === '' || !is_dir($docRoot . $publicBase . '/assets')) {
     $publicBase = rtrim($basePath . '/public', '/');
 }
 $assetBase = $publicBase . '/assets';
+$buildCheckoutLink = static function (array $offer) use ($checkoutMode, $checkoutWhatsappNumber, $whopCheckoutUrl, $basePath, $lang): string {
+    $number = trim($offer['whatsapp_number'] ?? '') ?: $checkoutWhatsappNumber;
+    $message = $offer['whatsapp_message'] ?? null;
+    if ($checkoutMode === 'whatsapp') {
+        return getWhatsappLink($number, $offer['name'] ?? '', (float) ($offer['price'] ?? 0), $offer['duration'] ?? '', $message);
+    }
+    if ($checkoutMode === 'whop' && $whopCheckoutUrl !== '') {
+        return $whopCheckoutUrl;
+    }
+    return $basePath . '/checkout?offer=' . (int) ($offer['id'] ?? 0) . '&lang=' . urlencode($lang);
+};
 
 $mediaBase = $assetBase . '/images/demo';
 
@@ -105,7 +134,7 @@ $structuredData = [
 
     'url' => $baseUrl,
 
-    'offers' => array_map(static function (array $offer) use ($supportWhatsappNumber): array {
+    'offers' => array_map(static function (array $offer) use ($buildCheckoutLink): array {
 
         return [
 
@@ -119,7 +148,7 @@ $structuredData = [
 
             'availability' => 'https://schema.org/InStock',
 
-            'url' => getWhatsappLink($supportWhatsappNumber, $offer['name'], (float) $offer['price'], $offer['duration']),
+            'url' => $buildCheckoutLink($offer),
 
         ];
 
@@ -737,7 +766,8 @@ $faqs = [
 
                         </ul>
 
-                        <a class="btn primary" href="<?= $basePath ?>/checkout?offer=<?= (int) $offer['id'] ?>&lang=<?= e($lang) ?>" data-i18n-key="offers-buy" data-i18n-default="Buy now" data-keep-lang>Buy now</a>
+                        <?php $offerCheckoutLink = $buildCheckoutLink($offer); ?>
+                        <a class="btn primary" href="<?= e($offerCheckoutLink) ?>" data-i18n-key="offers-buy" data-i18n-default="Buy now" data-keep-lang>Buy now</a>
 
                         <small data-i18n-key="offers-ready" data-i18n-default="Ready in 5-7 min · WhatsApp">Ready in 5-7 min · WhatsApp</small>
 
