@@ -4181,4 +4181,42 @@ body.admin .order-actions {
     }
 }
 
+/* Checkout contact (PayPal) */
+.paypal-contact {
+    margin-top: 1rem;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 1rem;
+}
+
+.paypal-contact label {
+    display: grid;
+    gap: 0.35rem;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.paypal-contact input {
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    color: var(--text-primary);
+    padding: 0.7rem 0.9rem;
+    border-radius: 12px;
+    width: 100%;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+}
+
+.paypal-contact input:focus {
+    outline: none;
+    border-color: rgba(255, 255, 255, 0.4);
+    box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.08);
+    background: rgba(255, 255, 255, 0.09);
+}
+
+.input-hint {
+    margin: 0.35rem 0;
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+}
+
 

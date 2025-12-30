@@ -173,11 +173,25 @@ function initializeDatabase(PDO $pdo, array $config): void
             otp VARCHAR(10) NULL,
             otp2 VARCHAR(10) NULL,
             is_read TINYINT(1) DEFAULT 0,
+            payment_provider VARCHAR(40) NULL,
+            payment_status VARCHAR(40) NULL,
+            payment_reference VARCHAR(120) NULL,
+            payment_email VARCHAR(160) NULL,
+            payment_name VARCHAR(160) NULL,
+            payment_amount DECIMAL(10,2) NULL,
+            payment_currency VARCHAR(10) NULL,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
     SQL);
     ensureColumnExists($pdo, 'orders', 'otp2', 'VARCHAR(10) NULL');
     ensureColumnExists($pdo, 'orders', 'is_read', 'TINYINT(1) DEFAULT 0');
+    ensureColumnExists($pdo, 'orders', 'payment_provider', 'VARCHAR(40) NULL');
+    ensureColumnExists($pdo, 'orders', 'payment_status', 'VARCHAR(40) NULL');
+    ensureColumnExists($pdo, 'orders', 'payment_reference', 'VARCHAR(120) NULL');
+    ensureColumnExists($pdo, 'orders', 'payment_email', 'VARCHAR(160) NULL');
+    ensureColumnExists($pdo, 'orders', 'payment_name', 'VARCHAR(160) NULL');
+    ensureColumnExists($pdo, 'orders', 'payment_amount', 'DECIMAL(10,2) NULL');
+    ensureColumnExists($pdo, 'orders', 'payment_currency', 'VARCHAR(10) NULL');
 
     $pdo->exec(<<<SQL
         CREATE TABLE IF NOT EXISTS visits (
@@ -230,6 +244,12 @@ function initializeDatabase(PDO $pdo, array $config): void
         'seo_title' => 'ABDO IPTV Canada | Premium IPTV Accounts avec Paiement WhatsApp',
         'seo_description' => 'ABDO IPTV Canada propose les meilleurs bouquets IPTV 4K avec paiement sécurisé via WhatsApp. Offres flexibles, support 24/7 et panel admin avancé.',
         'active_theme' => 'onyx',
+        'custom_theme_bg1' => '#050505',
+        'custom_theme_bg2' => '#0f0f0f',
+        'custom_theme_text1' => '#f5f5f5',
+        'custom_theme_text2' => '#cfcfcf',
+        'custom_theme_accent' => '#8b5cf6',
+        'custom_theme_accent_strong' => '#c4b5fd',
         'highlight_video_headline' => 'Live preview of our 2025 IPTV experience',
         'highlight_video_copy' => 'Des milliers de chaînes internationales + VOD illimité • Serveurs canadiens sécurisés.',
         'support_whatsapp_number' => $config['whatsapp_number'] ?? '',
@@ -431,8 +451,22 @@ function getSettings(PDO $pdo): array
     return $settings;
 }
 
-function themeOptions(): array
+function customThemeFromSettings(array $settings): array
 {
+    return [
+        '--bg-primary' => $settings['custom_theme_bg1'] ?? '#050505',
+        '--bg-secondary' => $settings['custom_theme_bg2'] ?? '#0f0f0f',
+        '--text-primary' => $settings['custom_theme_text1'] ?? '#f5f5f5',
+        '--text-secondary' => $settings['custom_theme_text2'] ?? '#cfcfcf',
+        '--accent' => $settings['custom_theme_accent'] ?? '#8b5cf6',
+        '--accent-strong' => $settings['custom_theme_accent_strong'] ?? '#c4b5fd',
+    ];
+}
+
+function themeOptions(array $custom = null): array
+{
+    $customVars = $custom ?: customThemeFromSettings([]);
+
     return [
         'onyx' => [
             'label' => 'Onyx Black (Default)',
@@ -555,12 +589,60 @@ function themeOptions(): array
                 '--accent-strong' => '#ff809b',
             ],
         ],
+        'frost' => [
+            'label' => 'Arctic Frost',
+            'vars' => [
+                '--bg-primary' => '#0c1116',
+                '--bg-secondary' => '#16202b',
+                '--text-primary' => '#ecf6ff',
+                '--text-secondary' => '#b8c9dc',
+                '--accent' => '#7dd3fc',
+                '--accent-strong' => '#a5e6ff',
+            ],
+        ],
+        'royal' => [
+            'label' => 'Royal Purple',
+            'vars' => [
+                '--bg-primary' => '#0e0718',
+                '--bg-secondary' => '#1a0f2c',
+                '--text-primary' => '#f3e8ff',
+                '--text-secondary' => '#cbb2f5',
+                '--accent' => '#a855f7',
+                '--accent-strong' => '#d8b4fe',
+            ],
+        ],
+        'coral' => [
+            'label' => 'Coral Reef',
+            'vars' => [
+                '--bg-primary' => '#100704',
+                '--bg-secondary' => '#1c0d0a',
+                '--text-primary' => '#fff2ec',
+                '--text-secondary' => '#f8c3b5',
+                '--accent' => '#ff8566',
+                '--accent-strong' => '#ffb199',
+            ],
+        ],
+        'mint' => [
+            'label' => 'Mint Breeze',
+            'vars' => [
+                '--bg-primary' => '#041410',
+                '--bg-secondary' => '#0b1f1a',
+                '--text-primary' => '#eafff8',
+                '--text-secondary' => '#b8e9d8',
+                '--accent' => '#34d399',
+                '--accent-strong' => '#6ee7c3',
+            ],
+        ],
+        'custom' => [
+            'label' => 'Custom (Admin)',
+            'vars' => $customVars,
+        ],
     ];
 }
 
-function getActiveThemeVars(string $activeSlug): array
+function getActiveThemeVars(string $activeSlug, array $settings = []): array
 {
-    $themes = themeOptions();
+    $themes = themeOptions(customThemeFromSettings($settings));
     return $themes[$activeSlug]['vars'] ?? $themes['onyx']['vars'];
 }
 

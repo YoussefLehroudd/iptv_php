@@ -19,7 +19,7 @@ logVisit($pdo);
 
 
 $settings = getSettings($pdo);
-$themeVars = getActiveThemeVars($settings['active_theme'] ?? 'onyx');
+$themeVars = getActiveThemeVars($settings['active_theme'] ?? 'onyx', $settings);
 $brandTitleSetting = trim($settings['brand_title'] ?? '');
 $brandName = $brandTitleSetting !== '' ? $brandTitleSetting : ($config['brand_name'] ?? 'ABDO IPTV CANADA');
 $brandTaglineSetting = trim($settings['brand_tagline'] ?? '');
@@ -32,7 +32,7 @@ if ($brandLogoMobile === '' && $brandLogoDesktop !== '') {
 $supportWhatsappNumber = trim($settings['support_whatsapp_number'] ?? '') ?: ($config['whatsapp_number'] ?? '');
 $checkoutEnabled = ($settings['checkout_enabled'] ?? '1') === '1';
 $checkoutModeSetting = trim($settings['checkout_mode'] ?? '');
-$checkoutMode = in_array($checkoutModeSetting, ['form', 'whatsapp', 'whop'], true)
+$checkoutMode = in_array($checkoutModeSetting, ['form', 'whatsapp', 'whop', 'paypal'], true)
     ? $checkoutModeSetting
     : ($checkoutEnabled ? 'form' : 'whatsapp');
 $checkoutWhatsappNumber = trim($settings['checkout_whatsapp_number'] ?? '') ?: $supportWhatsappNumber;
@@ -60,7 +60,7 @@ $songs = getSongs($pdo);
 $songDefaultVolume = (int) ($settings['song_default_volume'] ?? 40);
 $songDefaultMuted = ($settings['song_default_muted'] ?? '1') === '1';
 $musicPlayerVisible = ($settings['music_player_visible'] ?? '1') === '1';
-$showHeaderTrial = ($settings['show_header_trial'] ?? '1') === '1';
+$showHeaderTrial = false;
 $contactSuccess = isset($_GET['contact']) && $_GET['contact'] === 'success';
 $lang = 'en';
 if (isset($_GET['lang'])) {
@@ -142,7 +142,7 @@ $structuredData = [
 
             'price' => (float) $offer['price'],
 
-            'priceCurrency' => 'CAD',
+'priceCurrency' => 'USD',
 
             'name' => $offer['name'],
 

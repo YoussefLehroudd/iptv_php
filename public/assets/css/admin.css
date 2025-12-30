@@ -2708,6 +2708,7 @@ body.sidebar-open .sidebar-overlay {
     box-shadow: 0 10px 25px rgba(0, 0, 0, 0.35);
     display: grid;
     gap: 0.6rem;
+    word-break: break-word;
 }
 .order-card header {
     display: flex;
@@ -2726,6 +2727,30 @@ body.admin .order-actions {
     position: absolute;
     top: 10px;
     right: 10px;
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+.order-actions .btn.danger {
+    border-color: rgba(255, 90, 90, 0.5);
+    color: #ff8a8a;
+}
+.order-actions .btn.danger:hover {
+    background: rgba(255, 90, 90, 0.12);
+    color: #ffb0b0;
+}
+
+@media (max-width: 740px) {
+    body.admin .order-actions {
+        position: static;
+        justify-content: flex-start;
+        margin-top: 0.4rem;
+    }
+    .order-card header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.35rem;
+    }
 }
 .order-pill {
     display: inline-flex;
@@ -3621,6 +3646,89 @@ body.admin .order-actions {
     border-radius: 16px;
 }
 
+.password-input {
+    position: relative;
+    display: flex;
+    align-items: center;
+    width: 100%;
+}
+
+.password-input input {
+    padding-right: 3rem;
+}
+
+.toggle-password {
+    position: absolute;
+    right: 0.75rem;
+    top: 50%;
+    transform: translateY(-50%);
+    border: none;
+    background: transparent;
+    color: var(--text-secondary);
+    cursor: pointer;
+    padding: 0;
+    width: 32px;
+    height: 32px;
+    display: grid;
+    place-items: center;
+}
+
+.toggle-password:hover {
+    color: var(--text-primary);
+}
+
+.toggle-password svg {
+    width: 18px;
+    height: 18px;
+}
+
+.toggle-password .icon-eye-off {
+    display: none;
+}
+
+.toggle-password.is-visible .icon-eye {
+    display: none;
+}
+
+.toggle-password.is-visible .icon-eye-off {
+    display: inline;
+}
+
+.order-payline {
+    display: block;
+    line-height: 1.4;
+}
+
+.paypal-contact {
+    margin-top: 1rem;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 1rem;
+}
+
+.paypal-contact label {
+    display: grid;
+    gap: 0.35rem;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.paypal-contact input {
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    color: var(--text-primary);
+    padding: 0.7rem 0.9rem;
+    border-radius: 12px;
+    width: 100%;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+}
+
+.paypal-contact input:focus {
+    outline: none;
+    border-color: rgba(255, 255, 255, 0.4);
+    box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.08);
+    background: rgba(255, 255, 255, 0.09);
+}
 
 
 .card-payment {

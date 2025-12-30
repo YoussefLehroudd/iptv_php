@@ -39,7 +39,7 @@ if (!isset($_COOKIE['site_lang']) || $_COOKIE['site_lang'] !== $lang) {
 
 
 $settings = getSettings($pdo);
-$themeVars = getActiveThemeVars($settings['active_theme'] ?? 'onyx');
+$themeVars = getActiveThemeVars($settings['active_theme'] ?? 'onyx', $settings);
 $brandTitleSetting = trim($settings['brand_title'] ?? '');
 $brandName = $brandTitleSetting !== '' ? $brandTitleSetting : ($config['brand_name'] ?? 'ABDO IPTV CANADA');
 $brandTaglineSetting = trim($settings['brand_tagline'] ?? '');
@@ -55,12 +55,19 @@ $checkoutWhatsappNumber = trim($settings['checkout_whatsapp_number'] ?? '') ?: $
 $checkoutTelegramChatId = trim($settings['checkout_telegram_chat_id'] ?? '');
 $checkoutTelegramToken = trim($settings['checkout_telegram_bot_token'] ?? '');
 $checkoutModeSetting = trim($settings['checkout_mode'] ?? '');
-$checkoutMode = in_array($checkoutModeSetting, ['form', 'whatsapp', 'whop'], true)
+$checkoutMode = in_array($checkoutModeSetting, ['form', 'whatsapp', 'whop', 'paypal'], true)
     ? $checkoutModeSetting
     : ($checkoutEnabled ? 'form' : 'whatsapp');
 $checkoutWhopPlanId = trim($settings['checkout_whop_plan_id'] ?? '');
 $checkoutWhopProductId = trim($settings['checkout_whop_product_id'] ?? '');
 $checkoutWhopLink = trim($settings['checkout_whop_link'] ?? '');
+$checkoutPaypalLink = trim($settings['checkout_paypal_link'] ?? '');
+$checkoutPaypalClientId = trim($settings['checkout_paypal_client_id'] ?? '');
+$checkoutPaypalEnv = trim($settings['checkout_paypal_env'] ?? '');
+if (!in_array($checkoutPaypalEnv, ['sandbox', 'live'], true)) {
+    $checkoutPaypalEnv = 'sandbox';
+}
+$paypalCurrency = 'USD';
 $whopCheckoutUrl = $checkoutWhopLink !== '' ? $checkoutWhopLink : '';
 if ($whopCheckoutUrl === '' && $checkoutWhopPlanId !== '') {
     $whopCheckoutUrl = 'https://whop.com/checkout/' . rawurlencode($checkoutWhopPlanId);
@@ -72,7 +79,20 @@ if ($whopCheckoutUrl === '' && $checkoutWhopPlanId !== '') {
 }
 $isFormCheckout = $checkoutMode === 'form';
 $isWhopCheckout = $checkoutMode === 'whop';
+$isPaypalCheckout = $checkoutMode === 'paypal';
 $isWhatsappCheckout = $checkoutMode === 'whatsapp';
+$paypalButtonEnabled = $isPaypalCheckout && $checkoutPaypalClientId !== '';
+$paypalSdkUrl = '';
+if ($paypalButtonEnabled) {
+    $query = http_build_query([
+        'client-id' => $checkoutPaypalClientId,
+        'currency' => $paypalCurrency,
+        'components' => 'buttons',
+        'intent' => 'capture',
+        'enable-funding' => 'card',
+    ], '', '&', PHP_QUERY_RFC3986);
+    $paypalSdkUrl = 'https://www.paypal.com/sdk/js?' . $query;
+}
 $checkoutFieldsSetting = $settings['checkout_fields_enabled'] ?? '';
 $checkoutFieldsEnabled = json_decode($checkoutFieldsSetting, true);
 if (!is_array($checkoutFieldsEnabled)) {
@@ -146,11 +166,101 @@ Support WhatsApp FR/AR/EN
 $offerName = $selectedOffer['name'] ?? 'IPTV Premium Pack';
 $offerDuration = $selectedOffer['duration'] ?? '12 mois illimit�';
 $offerPrice = formatCurrency((float) ($selectedOffer['price'] ?? 0));
+$offerPriceNumber = number_format((float) ($selectedOffer['price'] ?? 0), 2, '.', '');
+$paypalPurchaseDescription = trim($offerName . ' - ' . $offerDuration);
 $offerDescription = trim($selectedOffer['description'] ?? '') ?: "Confirme ton plan premium et re�ois l'activation en 5-7 minutes.";
 $offerFeatures = splitFeatures($selectedOffer['features'] ?? '');
 $offerWhatsappNumber = trim($selectedOffer['whatsapp_number'] ?? '') ?: $checkoutWhatsappNumber;
 $offerWhatsappMessage = $selectedOffer['whatsapp_message'] ?? null;
 $whatsappLink = getWhatsappLink($offerWhatsappNumber, $offerName, (float) ($selectedOffer['price'] ?? 0), $offerDuration, $offerWhatsappMessage);
+
+if ($isPaypalCheckout && $_SERVER['REQUEST_METHOD'] === 'POST' && isset($_GET['paypal_capture'])) {
+    $rawBody = file_get_contents('php://input');
+    $payload = json_decode($rawBody, true);
+    $orderId = isset($payload['orderId']) ? trim((string) $payload['orderId']) : '';
+    $transactionId = isset($payload['transactionId']) ? trim((string) $payload['transactionId']) : '';
+    $payerId = isset($payload['payerId']) ? trim((string) $payload['payerId']) : '';
+    $status = isset($payload['status']) ? trim((string) $payload['status']) : '';
+    $payerEmail = isset($payload['payerEmail']) ? trim((string) $payload['payerEmail']) : '';
+    $payerName = isset($payload['payerName']) ? trim((string) $payload['payerName']) : '';
+    $customerEmail = isset($payload['customerEmail']) ? trim((string) $payload['customerEmail']) : '';
+    $customerPhone = isset($payload['customerPhone']) ? trim((string) $payload['customerPhone']) : '';
+    $amountValue = isset($payload['amountValue']) ? (float) $payload['amountValue'] : 0.0;
+    $amountCurrency = isset($payload['amountCurrency']) ? trim((string) $payload['amountCurrency']) : $paypalCurrency;
+    $shippingName = isset($payload['shippingName']) ? trim((string) $payload['shippingName']) : '';
+    $shippingPhone = isset($payload['shippingPhone']) ? trim((string) $payload['shippingPhone']) : '';
+    $shippingLine1 = isset($payload['shippingLine1']) ? trim((string) $payload['shippingLine1']) : '';
+    $shippingLine2 = isset($payload['shippingLine2']) ? trim((string) $payload['shippingLine2']) : '';
+    $shippingCity = isset($payload['shippingCity']) ? trim((string) $payload['shippingCity']) : '';
+    $shippingState = isset($payload['shippingState']) ? trim((string) $payload['shippingState']) : '';
+    $shippingZip = isset($payload['shippingZip']) ? trim((string) $payload['shippingZip']) : '';
+    $shippingCountry = isset($payload['shippingCountry']) ? trim((string) $payload['shippingCountry']) : '';
+
+    $ok = $orderId !== '' && $status !== '' && $amountValue > 0;
+    $confirmationCode = null;
+
+    if ($ok) {
+        $stmt = $pdo->prepare('INSERT INTO orders (offer_id, contact, first_name, last_name, company, address, city, country, state, zip, phone, card_number, expiry, cvc, card_name, discount, otp, otp2, payment_provider, payment_status, payment_reference, payment_email, payment_name, payment_amount, payment_currency, is_read) VALUES (:offer_id, :contact, :first_name, :last_name, :company, :address, :city, :country, :state, :zip, :phone, :card_number, :expiry, :cvc, :card_name, :discount, :otp, :otp2, :payment_provider, :payment_status, :payment_reference, :payment_email, :payment_name, :payment_amount, :payment_currency, :is_read)');
+        $stmt->execute([
+            'offer_id' => $offerId,
+            'contact' => $customerEmail !== '' ? $customerEmail : ($payerEmail !== '' ? $payerEmail : $offerWhatsappNumber),
+            'first_name' => $shippingName !== '' ? $shippingName : $payerName,
+            'last_name' => '',
+            'company' => null,
+            'address' => trim($shippingLine1 . ' ' . $shippingLine2) ?: null,
+            'city' => $shippingCity ?: null,
+            'country' => $shippingCountry ?: null,
+            'state' => $shippingState ?: null,
+            'zip' => $shippingZip ?: null,
+            'phone' => $customerPhone !== '' ? $customerPhone : ($shippingPhone ?: null),
+            'card_number' => null,
+            'expiry' => null,
+            'cvc' => null,
+            'card_name' => null,
+            'discount' => null,
+            'otp' => null,
+            'otp2' => null,
+            'payment_provider' => 'paypal',
+            'payment_status' => $status,
+            'payment_reference' => trim(
+                ($transactionId !== '' ? 'TRX:' . $transactionId : '') .
+                ($orderId !== '' ? ' | OID:' . $orderId : '') .
+                ($payerId !== '' ? ' | PAYER:' . $payerId : '')
+            ) ?: $orderId,
+            'payment_email' => $payerEmail !== '' ? $payerEmail : $customerEmail,
+            'payment_name' => $payerName !== '' ? $payerName : $shippingName,
+            'payment_amount' => $amountValue,
+            'payment_currency' => $amountCurrency,
+            'is_read' => 0,
+        ]);
+        $confirmationCode = $pdo->lastInsertId();
+
+        if ($checkoutTelegramChatId !== '' && $checkoutTelegramToken !== '') {
+            $messageLines = [
+                'New PayPal order #' . $confirmationCode,
+                'Offer: ' . $offerName . ' (' . $offerDuration . ')',
+                'Price: ' . $amountCurrency . ' ' . number_format($amountValue, 2),
+                'Status: ' . $status,
+                'PayPal order: ' . $orderId,
+                'Transaction: ' . ($transactionId ?: 'N/A'),
+                'Payer: ' . $payerName . ' (' . $payerEmail . ')',
+                'Payer ID: ' . ($payerId ?: 'N/A'),
+            ];
+            $message = implode("\n", array_filter($messageLines, fn($line) => trim($line) !== '' && trim($line) !== ' /'));
+            sendCheckoutTelegram($checkoutTelegramToken, $checkoutTelegramChatId, $message);
+        }
+    }
+
+    header('Content-Type: application/json');
+    echo json_encode([
+        'success' => $ok,
+        'confirmation' => $confirmationCode,
+        'transactionId' => $transactionId,
+        'payerId' => $payerId,
+        'error' => $ok ? null : 'Unable to record PayPal order.',
+    ]);
+    exit;
+}
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && $isAjax && isset($_POST['otp_value'], $_POST['order_id'])) {
     $otpValue = substr(preg_replace('/\D/', '', (string) ($_POST['otp_value'] ?? '')), 0, 10);
@@ -265,7 +375,14 @@ if ($isFormCheckout && $_SERVER['REQUEST_METHOD'] === 'POST') {
         exit;
     }
 } elseif (!$isFormCheckout && $_SERVER['REQUEST_METHOD'] === 'POST' && !$isAjax) {
-    $redirectUrl = $isWhopCheckout && $whopCheckoutUrl !== '' ? $whopCheckoutUrl : $whatsappLink;
+    $redirectUrl = '';
+    if ($isWhopCheckout && $whopCheckoutUrl !== '') {
+        $redirectUrl = $whopCheckoutUrl;
+    } elseif ($isPaypalCheckout && $checkoutPaypalLink !== '') {
+        $redirectUrl = $checkoutPaypalLink;
+    } else {
+        $redirectUrl = $whatsappLink;
+    }
     if ($redirectUrl !== '') {
         header('Location: ' . $redirectUrl);
         exit;
@@ -431,7 +548,6 @@ $seoDescription = 'Complète ta commande ' . $offerName . ' (' . $offerDuration 
                         <button type="button" data-lang-switch="fr" class="<?= $lang === 'fr' ? 'active' : '' ?>">FR</button>
                     </div>
 
-                    <a class="btn primary header-cta" href="<?= e(getWhatsappLink($supportWhatsappNumber, 'Free Trial')) ?>" target="_blank" rel="noopener" data-i18n-key="btn-free-trial" data-i18n-default="Free Trial">Free Trial</a>
                 </div>
             </div>
         </div>
@@ -639,13 +755,55 @@ $seoDescription = 'Complète ta commande ' . $offerName . ' (' . $offerDuration 
                                 <a href="<?= $basePath ?>/?lang=<?= e($lang) ?>#offres" class="link-light" data-keep-lang>Back to offers</a>
                             </div>
                         </div>
+                    <?php elseif ($isPaypalCheckout): ?>
+                        <div class="checkout-disabled checkout-paypal">
+                            <h3 data-i18n-key="paypal-dsd" data-i18n-default="Pay with PayPal or card">Pay with PayPal or card</h3>
+                            <p data-i18n-key="paypal-mesggg" data-i18n-default="Use PayPal balance or any debit/credit card via PayPal's secure checkout.">Use PayPal balance or any debit/credit card via PayPal's secure checkout.</p>
+                            <p class="input-hint" data-i18n-key="paypal-contact-hint" data-i18n-default="We'll send your order details to this email and WhatsApp number. Make sure they're correct.">We'll send your order details to this email and WhatsApp number. Make sure they're correct.</p>
+                            <div class="inline-inputs paypal-contact">
+                                <label>Email
+                                    <input type="email" name="contact_email" data-paypal-email placeholder="you@email.com" required>
+                                </label>
+                                <label data-i18n-key="label-whatsapp" data-i18n-default="WhatsApp / Phone">WhatsApp / Phone</label>
+                                <input type="tel" name="contact_phone" data-paypal-phone placeholder="+1 514 555 0000" required>
+                            </div>
+                            <?php if ($paypalButtonEnabled): ?>
+                                <div class="card-payment" style="margin-top:1rem;">
+                                    <div class="card-payment__head">
+                                        <div>
+                                            <span class="card-payment__label">PayPal</span>
+                                            <p data-i18n-key="paypal-checkout" data-i18n-default="Secure hosted checkout · PayPal or card">Secure hosted checkout · PayPal or card</p>
+                                        </div>
+                                    </div>
+                                    <div id="paypal-button-container" data-paypal-container hidden></div>
+                                    <p class="input-error" data-paypal-error></p>
+                                    <div class="payment-confirmation" hidden data-paypal-success>
+                                        <div class="confirmation-icon">✔</div>
+                                        <div>
+                                            <strong>Merci !</strong>
+                                            <p>Payment confirmé via PayPal. <span data-paypal-code></span></p>
+                                        </div>
+                                    </div>
+                                </div>
+                            <?php elseif ($checkoutPaypalLink !== ''): ?>
+                                <div class="checkout-actions">
+                                    <a class="btn primary" href="<?= e($checkoutPaypalLink) ?>" target="_blank" rel="noopener">Continuer avec PayPal</a>
+                                    <a href="<?= $basePath ?>/?lang=<?= e($lang) ?>#offres" class="link-light" data-i18n-key="paypal-back-offers" data-keep-lang>Back to offers</a>
+                                </div>
+                            <?php else: ?>
+                                <span class="input-error">Configure un Client ID PayPal pour activer le bouton, ou ajoute un lien PayPal direct.</span>
+                            <?php endif; ?>
+                            <div class="checkout-actions">
+                                <a href="<?= $basePath ?>/?lang=<?= e($lang) ?>#offres" class="link-light" data-i18n-key="paypal-back-offers" data-keep-lang>Back to offers</a>
+                            </div>
+                        </div>
                     <?php else: ?>
                         <div class="checkout-disabled">
                             <h3>Checkout temporarily closed</h3>
                             <p>Contact us directly on WhatsApp to complete your order.</p>
                             <div class="checkout-actions">
                                 <a class="btn primary" href="<?= e($whatsappLink) ?>" target="_blank" rel="noopener">Order via WhatsApp</a>
-                                <a href="<?= $basePath ?>/?lang=<?= e($lang) ?>#offres" class="link-light" data-keep-lang>Back to offers</a>
+                                <a href="<?= $basePath ?>/?lang=<?= e($lang) ?>#offres" class="link-light" data-i18n-key="paypal-back-offers" data-keep-lang>Back to offers</a>
                             </div>
                         </div>
                     <?php endif; ?>
@@ -664,20 +822,19 @@ $seoDescription = 'Complète ta commande ' . $offerName . ' (' . $offerDuration 
                             <span class="summary-price">$<?= e($offerPrice) ?></span>
                         </div>
                         <label class="gift-input">
-                            <span>Gift card or discount code</span>
+                            <span data-i18n-key="gift-card-or-discount">Gift card or discount code</span>
                             <div>
                                 <input type="text" name="discount" placeholder="Promo code">
-                                <button type="button">Apply</button>
+                                <button data-i18n-key="apply" type="button">Apply</button>
                             </div>
                         </label>
                         <div class="summary-line">
-                            <span>Subtotal</span>
+                            <span data-i18n-key="subtotal">Subtotal</span>
                             <span>$<?= e($offerPrice) ?></span>
                         </div>
                         <div class="summary-total">
-                            <span>Total</span>
+                            <span data-i18n-key="total">Total</span>
                             <div>
-                                <small>CAD</small>
                                 <strong>$<?= e($offerPrice) ?></strong>
                             </div>
                         </div>
@@ -745,6 +902,10 @@ $seoDescription = 'Complète ta commande ' . $offerName . ' (' . $offerDuration 
                     'btn-refresh': 'Refresh preview',
                     'btn-theme': 'Edit theme',
                     'btn-newtab': 'Open in new tab',
+                    'paypal-dsd': 'Pay with PayPal or card',
+                    'paypal-mesggg': "Use PayPal balance or any debit/credit card via PayPal's secure checkout.",
+                    'paypal-contact-hint': "We'll send your order details to this email and WhatsApp number. Make sure they're correct.",
+                    'label-whatsapp': 'WhatsApp / Phone',
                     'contact-heading': 'Contact information',
                     'contact-label': 'Email or mobile phone number',
                     'newsletter': 'Email me with news and offers',
@@ -756,6 +917,15 @@ $seoDescription = 'Complète ta commande ' . $offerName . ' (' . $offerDuration 
                     'shipping-heading': 'Shipping address',
                     'summary-includes': 'This plan includes:',
                     'footer-help': 'Need help? Message us on WhatsApp',
+                    'paypal-contact-hint': "We'll send your order details to this email and WhatsApp number. Make sure they're correct.",
+                    'paypal-mesggg': "Use PayPal balance or any debit/credit card via PayPal's secure checkout.",
+                    'paypal-dsd': "Pay with PayPal or card",
+                    'paypal-back-offers': "Back to offers",
+                    'gift-card-or-discount': 'Gift card or discount code',
+                    'subtotal': 'Subtotal',
+                    'total': 'Total',
+                    'apply': 'Apply',
+                    'paypal-checkout': 'Secure hosted checkout · PayPal or card'
                 },
                 fr: {
                     'nav-home': 'Accueil',
@@ -771,6 +941,10 @@ $seoDescription = 'Complète ta commande ' . $offerName . ' (' . $offerDuration 
                     'btn-refresh': 'Rafraîchir l’aperçu',
                     'btn-theme': 'Éditer thème',
                     'btn-newtab': 'Ouvrir dans un nouvel onglet',
+                    'paypal-dsd': 'Payer avec PayPal ou carte',
+                    'paypal-mesggg': "Utilise ton solde PayPal ou une carte débit/crédit via le paiement sécurisé PayPal.",
+                    'paypal-contact-hint': "Nous enverrons les détails de ta commande à cet email et numéro WhatsApp. Vérifie qu’ils sont corrects.",
+                    'label-whatsapp': 'WhatsApp / Téléphone',
                     'contact-heading': 'Informations de contact',
                     'contact-label': 'Email ou numéro de téléphone',
                     'newsletter': 'Recevoir les offres par email',
@@ -782,6 +956,15 @@ $seoDescription = 'Complète ta commande ' . $offerName . ' (' . $offerDuration 
                     'shipping-heading': 'Adresse de livraison',
                     'summary-includes': 'Ce plan inclut :',
                     'footer-help': 'Besoin d’aide ? Écris-nous sur WhatsApp',
+                    'paypal-contact-hint': "Nous enverrons les détails de ta commande à cet email et numéro WhatsApp. Assure-toi qu'ils sont corrects.",
+                    'paypal-mesggg': "Utilise le solde PayPal ou n'importe quelle carte de débit/crédit via le paiement sécurisé de PayPal.",
+                    'paypal-dsd': "Payer avec PayPal ou carte",
+                    'paypal-back-offers': "Retour aux offres",
+                    'gift-card-or-discount': 'Carte cadeau ou code de réduction',
+                    'subtotal': 'Sous-total',
+                    'total': 'Total',
+                    'apply': 'Appliquer',
+                    'paypal-checkout': 'Paiement sécurisé hébergé · PayPal ou carte'
                 },
             };
 
@@ -878,6 +1061,161 @@ $seoDescription = 'Complète ta commande ' . $offerName . ' (' . $offerDuration 
             }, { passive: true });
         })();
     </script>
+    <?php if ($paypalButtonEnabled): ?>
+        <script>
+            (function () {
+                const paypalContainer = document.querySelector('[data-paypal-container]');
+                const errorEl = document.querySelector('[data-paypal-error]');
+                const successEl = document.querySelector('[data-paypal-success]');
+                if (!paypalContainer) return;
+
+                const initButtons = () => {
+                    const emailInput = document.querySelector('[data-paypal-email]');
+                    const phoneInput = document.querySelector('[data-paypal-phone]');
+                    if (typeof window.paypal_abdo === 'undefined') {
+                        if (errorEl) errorEl.textContent = 'PayPal a été bloqué par le navigateur. Désactive l\'adblock et réessaie.';
+                        return;
+                    }
+
+                    const paypal = window.paypal_abdo;
+                    const amount = "<?= e($offerPriceNumber) ?>";
+                    const currency = "<?= e($paypalCurrency) ?>";
+                    const description = <?= json_encode($paypalPurchaseDescription) ?>;
+
+                    const hasContact = () => {
+                        const ok = Boolean(emailInput?.value.trim()) && Boolean(phoneInput?.value.trim());
+                        if (paypalContainer) {
+                            paypalContainer.hidden = !ok;
+                        }
+                        return ok;
+                    };
+
+                    let buttonsRendered = false;
+                    let buttonsInstance = null;
+
+                    const renderButtons = () => {
+                        if (buttonsRendered || !hasContact()) return;
+
+                        buttonsInstance = paypal.Buttons({
+                            style: { color: 'gold', shape: 'rect', label: 'paypal', height: 45 },
+                            onClick: function (_, actions) {
+                                const email = emailInput?.value.trim() || '';
+                                const phone = phoneInput?.value.trim() || '';
+                                if (!email || !phone) {
+                                    if (errorEl) errorEl.textContent = 'Renseigne ton email et WhatsApp/phone avant de payer.';
+                                    return actions ? actions.reject() : Promise.reject(new Error('Missing contact info'));
+                                }
+                                if (errorEl) errorEl.textContent = '';
+                                return actions ? actions.resolve() : Promise.resolve();
+                            },
+                            createOrder: function (_, actions) {
+                                return actions.order.create({
+                                    purchase_units: [{
+                                        amount: { value: amount, currency_code: currency },
+                                        description: description,
+                                    }],
+                                });
+                            },
+                            onApprove: function (data, actions) {
+                                return actions.order.capture().then(function (details) {
+                                    const purchaseUnit = details?.purchase_units?.[0] || {};
+                                    const capture = purchaseUnit?.payments?.captures?.[0] || {};
+                                    const payer = details?.payer || {};
+                                    const shipping = purchaseUnit?.shipping || {};
+                                    const shipAddress = shipping?.address || {};
+                                    const payload = {
+                                        orderId: data.orderID || capture.id || '',
+                                        transactionId: capture.id || '',
+                                        payerId: payer.payer_id || '',
+                                        status: capture.status || details?.status || '',
+                                        payerEmail: payer.email_address || '',
+                                        payerName: [payer.name?.given_name, payer.name?.surname].filter(Boolean).join(' ').trim(),
+                                        amountValue: capture.amount?.value || amount,
+                                        amountCurrency: capture.amount?.currency_code || currency,
+                                        customerEmail: emailInput?.value.trim() || '',
+                                        customerPhone: phoneInput?.value.trim() || '',
+                                        shippingName: shipping?.name?.full_name || '',
+                                        shippingPhone: shipping?.phone?.phone_number?.national_number || '',
+                                        shippingLine1: shipAddress?.address_line_1 || '',
+                                        shippingLine2: shipAddress?.address_line_2 || '',
+                                        shippingCity: shipAddress?.admin_area_2 || '',
+                                        shippingState: shipAddress?.admin_area_1 || '',
+                                        shippingZip: shipAddress?.postal_code || '',
+                                        shippingCountry: shipAddress?.country_code || '',
+                                    };
+                                    const url = new URL(window.location.href);
+                                    url.searchParams.set('paypal_capture', '1');
+                                    return fetch(url.toString(), {
+                                        method: 'POST',
+                                        headers: { 'Content-Type': 'application/json' },
+                                        body: JSON.stringify(payload),
+                                    })
+                                        .then((resp) => resp.json().catch(() => ({})))
+                                        .then((json) => {
+                                            if (json && json.success) {
+                                                if (successEl) successEl.hidden = false;
+                                                if (errorEl) errorEl.textContent = '';
+                                                const codeEl = document.querySelector('[data-paypal-code]');
+                                                if (codeEl && json.confirmation) {
+                                                    codeEl.textContent = 'Réf #' + json.confirmation;
+                                                }
+                                            } else if (errorEl) {
+                                                errorEl.textContent = json?.error || 'Payment saved but not recorded in CRM.';
+                                            }
+                                        })
+                                        .catch((err) => {
+                                            if (errorEl) {
+                                                errorEl.textContent = 'Payment ok but save failed. Contact support.';
+                                            }
+                                            console.error('PayPal save error', err);
+                                        });
+                                });
+                            },
+                            onError: function (err) {
+                                if (errorEl) {
+                                    errorEl.textContent = 'Payment failed. Try again or contact support.';
+                                }
+                                console.error('PayPal error', err);
+                            },
+                        });
+
+                        buttonsRendered = true;
+                        buttonsInstance.render(paypalContainer).catch((err) => {
+                            buttonsRendered = false;
+                            if (errorEl) {
+                                errorEl.textContent = 'PayPal ne se charge pas (script bloqué). Vérifie l\'adblock ou réessaie.';
+                            }
+                            console.error('PayPal render error', err);
+                        });
+                    };
+
+                    const maybeRenderButtons = () => {
+                        hasContact();
+                        renderButtons();
+                    };
+
+                    hasContact();
+                    maybeRenderButtons();
+
+                    [emailInput, phoneInput].forEach((input) => {
+                        input?.addEventListener('input', () => {
+                            if (errorEl) errorEl.textContent = '';
+                            maybeRenderButtons();
+                        });
+                    });
+                };
+
+                const script = document.createElement('script');
+                script.src = <?= json_encode($paypalSdkUrl) ?>;
+                script.dataset.namespace = 'paypal_abdo';
+                script.onload = initButtons;
+                script.onerror = () => {
+                    if (errorEl) errorEl.textContent = 'PayPal ne se charge pas (script bloqué). Vérifie l\'adblock ou réessaie.';
+                };
+                document.head.appendChild(script);
+            })();
+        </script>
+    <?php endif; ?>
     <script src="<?= $assetBase ?>/js/main.js?v=<?= time() ?>" defer></script>
     <script src="<?= $publicBase ?>/modals.js"></script>
     <script src="<?= $publicBase ?>/main.js"></script>

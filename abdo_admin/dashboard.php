@@ -16,6 +16,7 @@ if ($docRoot === '' || !is_dir($docRoot . $publicBase . '/assets')) {
 $assetBase = $publicBase . '/assets';
 $adminBase = $basePath . '/abdo_admin';
 $previewUrl = rtrim($publicBase, '/') . '/';
+$settings = getSettings($pdo);
 
 $posterCategories = fetchAllAssoc($pdo, 'SELECT * FROM poster_categories ORDER BY label ASC');
 $posterCategoriesBySlug = [];
@@ -259,7 +260,34 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         case 'update_theme':
             $theme = $_POST['theme'] ?? 'onyx';
-            if (isset(themeOptions()[$theme])) {
+
+            // Handle custom palette save
+            if ($theme === 'custom') {
+                $sanitizeHex = static function (?string $value, string $fallback) {
+                    $clean = trim((string) $value);
+                    $clean = ltrim($clean, '#');
+                    if (preg_match('/^[0-9a-fA-F]{6}$/', $clean) || preg_match('/^[0-9a-fA-F]{3}$/', $clean)) {
+                        return '#' . $clean;
+                    }
+                    return $fallback;
+                };
+
+                $customVars = [
+                    'custom_theme_bg1' => $sanitizeHex($_POST['custom_bg1'] ?? null, $settings['custom_theme_bg1'] ?? '#050505'),
+                    'custom_theme_bg2' => $sanitizeHex($_POST['custom_bg2'] ?? null, $settings['custom_theme_bg2'] ?? '#0f0f0f'),
+                    'custom_theme_text1' => $sanitizeHex($_POST['custom_text1'] ?? null, $settings['custom_theme_text1'] ?? '#f5f5f5'),
+                    'custom_theme_text2' => $sanitizeHex($_POST['custom_text2'] ?? null, $settings['custom_theme_text2'] ?? '#cfcfcf'),
+                    'custom_theme_accent' => $sanitizeHex($_POST['custom_accent'] ?? null, $settings['custom_theme_accent'] ?? '#8b5cf6'),
+                    'custom_theme_accent_strong' => $sanitizeHex($_POST['custom_accent_strong'] ?? null, $settings['custom_theme_accent_strong'] ?? '#c4b5fd'),
+                ];
+
+                foreach ($customVars as $key => $val) {
+                    setSetting($pdo, $key, $val, true);
+                    $settings[$key] = $val;
+                }
+            }
+
+            if (isset(themeOptions(customThemeFromSettings($settings))[$theme])) {
                 setSetting($pdo, 'active_theme', $theme);
                 $redirectSection = $_POST['redirect_section'] ?? 'theme';
                 if (!array_key_exists($redirectSection, $navItems)) {
@@ -275,7 +303,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             break;
         case 'update_checkout_settings':
             $modePosted = $_POST['checkout_mode'] ?? '';
-            $mode = in_array($modePosted, ['form', 'whatsapp', 'whop'], true)
+            $mode = in_array($modePosted, ['form', 'whatsapp', 'whop', 'paypal'], true)
                 ? $modePosted
                 : (isset($_POST['checkout_enabled']) ? 'form' : 'whatsapp');
             $enabled = $mode === 'form' ? '1' : '0';
@@ -285,6 +313,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $whopPlanId = trim($_POST['checkout_whop_plan_id'] ?? '');
             $whopProductId = trim($_POST['checkout_whop_product_id'] ?? '');
             $whopCheckoutLink = trim($_POST['checkout_whop_link'] ?? '');
+            $paypalLink = trim($_POST['checkout_paypal_link'] ?? '');
+            $paypalClientId = trim($_POST['checkout_paypal_client_id'] ?? '');
+            $paypalEnv = trim($_POST['checkout_paypal_env'] ?? '');
             $fieldOptions = ['first_name', 'last_name', 'company', 'address', 'apartment', 'city', 'country', 'state', 'zip', 'phone'];
             $postedFields = isset($_POST['checkout_fields']) && is_array($_POST['checkout_fields']) ? array_map('strval', $_POST['checkout_fields']) : [];
             $enabledFields = array_values(array_intersect($fieldOptions, $postedFields));
@@ -296,6 +327,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             setSetting($pdo, 'checkout_whop_plan_id', $whopPlanId);
             setSetting($pdo, 'checkout_whop_product_id', $whopProductId);
             setSetting($pdo, 'checkout_whop_link', $whopCheckoutLink);
+            setSetting($pdo, 'checkout_paypal_link', $paypalLink);
+            setSetting($pdo, 'checkout_paypal_client_id', $paypalClientId);
+            setSetting($pdo, 'checkout_paypal_env', in_array($paypalEnv, ['sandbox', 'live'], true) ? $paypalEnv : 'sandbox');
             setSetting($pdo, 'checkout_fields_enabled', json_encode($enabledFields, JSON_UNESCAPED_SLASHES));
             adminFlashRedirect('Checkout mis a jour.', 'checkout', $adminBase);
             break;
@@ -656,6 +690,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
             adminFlashRedirect('Statut de lecture mis à jour.', 'orders', $adminBase);
             break;
+        case 'delete_order':
+            $orderId = (int) ($_POST['order_id'] ?? 0);
+            if ($orderId > 0) {
+                $stmt = $pdo->prepare('DELETE FROM orders WHERE id = :id');
+                $stmt->execute(['id' => $orderId]);
+            }
+            adminFlashRedirect('Commande supprimée.', 'orders', $adminBase);
+            break;
          case 'add_song':
 
             $title = trim($_POST['song_title'] ?? '');
@@ -787,19 +829,26 @@ $checkoutWhatsappNumber = trim($settings['checkout_whatsapp_number'] ?? '');
 $checkoutTelegramChatId = trim($settings['checkout_telegram_chat_id'] ?? '');
 $checkoutTelegramToken = trim($settings['checkout_telegram_bot_token'] ?? '');
 $checkoutModeSetting = trim($settings['checkout_mode'] ?? '');
-$checkoutMode = in_array($checkoutModeSetting, ['form', 'whatsapp', 'whop'], true)
+$checkoutMode = in_array($checkoutModeSetting, ['form', 'whatsapp', 'whop', 'paypal'], true)
     ? $checkoutModeSetting
     : ($checkoutEnabled ? 'form' : 'whatsapp');
 $checkoutWhopPlanId = trim($settings['checkout_whop_plan_id'] ?? '');
 $checkoutWhopProductId = trim($settings['checkout_whop_product_id'] ?? '');
 $checkoutWhopLink = trim($settings['checkout_whop_link'] ?? '');
+$checkoutPaypalLink = trim($settings['checkout_paypal_link'] ?? '');
+$checkoutPaypalClientId = trim($settings['checkout_paypal_client_id'] ?? '');
+$checkoutPaypalEnv = trim($settings['checkout_paypal_env'] ?? '');
+if (!in_array($checkoutPaypalEnv, ['sandbox', 'live'], true)) {
+    $checkoutPaypalEnv = 'sandbox';
+}
+$checkoutPaypalLink = trim($settings['checkout_paypal_link'] ?? '');
 $checkoutFieldsSetting = $settings['checkout_fields_enabled'] ?? '';
 $checkoutFieldsEnabled = json_decode($checkoutFieldsSetting, true);
 if (!is_array($checkoutFieldsEnabled)) {
     $checkoutFieldsEnabled = ['first_name', 'last_name', 'company', 'address', 'apartment', 'city', 'country', 'state', 'zip', 'phone'];
 }
 $supportWhatsappNumber = $supportWhatsappNumberSetting !== '' ? $supportWhatsappNumberSetting : ($config['whatsapp_number'] ?? '');
-$themeVars = getActiveThemeVars($settings['active_theme'] ?? 'onyx');
+$themeVars = getActiveThemeVars($settings['active_theme'] ?? 'onyx', $settings);
 $sliders = fetchAllAssoc($pdo, 'SELECT * FROM sliders ORDER BY created_at DESC');
 $offers = fetchAllAssoc($pdo, 'SELECT * FROM offers ORDER BY created_at DESC');
 $providers = fetchAllAssoc($pdo, 'SELECT * FROM providers ORDER BY created_at DESC');
@@ -826,7 +875,7 @@ $songDefaultMuted = ($settings['song_default_muted'] ?? '1') === '1';
 $musicPlayerVisible = ($settings['music_player_visible'] ?? '1') === '1';
 $orders = fetchAllAssoc($pdo, 'SELECT o.*, off.name AS offer_name, off.price AS offer_price, o.is_read FROM orders o LEFT JOIN offers off ON off.id = o.offer_id ORDER BY o.created_at DESC LIMIT 200');
 $visitStats = getVisitStats($pdo);
-$themes = themeOptions();
+$themes = themeOptions(customThemeFromSettings($settings));
 $latestMessages = $messages;
 $orderSoundConfig = trim((string) ($config['order_sound'] ?? ''));
 $orderSoundAudio = $orderSoundConfig !== '' ? $orderSoundConfig : 'config/iphone_new_message.mp3';
@@ -1014,6 +1063,172 @@ $editingTestimonial = $editing['testimonials'];
             transform: translateY(-1px);
             border-color: var(--accent-400, #7c3aed);
             background: var(--surface-400, rgba(255, 255, 255, 0.08));
+        }
+
+        /* Theme picker slider */
+        .theme-slider {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.8rem;
+            padding: 0.35rem 0;
+            overflow: hidden;
+            scrollbar-width: none;
+            -ms-overflow-style: none;
+        }
+
+        .theme-slider::-webkit-scrollbar {
+            display: none;
+        }
+
+        .theme-card {
+            position: relative;
+            flex: 1 1 260px;
+            min-width: 240px;
+            max-width: 100%;
+            cursor: pointer;
+        }
+
+        .theme-card input {
+            position: absolute;
+            inset: 0;
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .theme-card__body {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+            padding: 0.9rem 1rem;
+            border-radius: 14px;
+            border: 1px solid var(--surface-200, rgba(255, 255, 255, 0.08));
+            background: var(--surface-200, rgba(255, 255, 255, 0.03));
+            transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
+        }
+
+        .theme-card__name {
+            display: block;
+            font-weight: 600;
+        }
+
+        .theme-card__slug {
+            display: block;
+            margin-top: 0.15rem;
+            font-size: 0.85rem;
+            opacity: 0.65;
+            letter-spacing: 0.02em;
+        }
+
+        .theme-card__swatches {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
+        }
+
+        .theme-card__swatch {
+            width: 78px;
+            height: 34px;
+            border-radius: 10px;
+            background: linear-gradient(135deg, var(--swatch-from, #0d0f14) 0%, var(--swatch-to, #1b1f29) 90%);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.25);
+        }
+
+        .theme-card__chip {
+            width: 22px;
+            height: 22px;
+            border-radius: 50%;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            background: var(--swatch-chip, #7c3aed);
+            box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.3);
+        }
+
+        .theme-card__toggle {
+            width: 42px;
+            height: 22px;
+            border-radius: 999px;
+            border: 1px solid var(--surface-200, rgba(255, 255, 255, 0.2));
+            background: var(--surface-300, rgba(255, 255, 255, 0.08));
+            position: relative;
+        }
+
+        .theme-card__toggle::after {
+            content: '';
+            position: absolute;
+            top: 2px;
+            left: 2px;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: #9ca3af;
+            transition: transform 0.15s ease, background 0.15s ease;
+        }
+
+        .theme-card input:checked + .theme-card__body {
+            border-color: var(--accent-500, #7c3aed);
+            box-shadow: 0 0 0 2px rgba(124, 58, 237, 0.35);
+            transform: translateY(-2px);
+        }
+
+        .theme-card input:checked + .theme-card__body .theme-card__toggle {
+            border-color: var(--accent-500, #7c3aed);
+            background: var(--accent-500, #7c3aed);
+        }
+
+        .theme-card input:checked + .theme-card__body .theme-card__toggle::after {
+            transform: translateX(20px);
+            background: #fff;
+        }
+
+        .theme-card:hover .theme-card__body {
+            border-color: var(--surface-300, rgba(255, 255, 255, 0.16));
+        }
+
+        @media (max-width: 720px) {
+            .theme-card {
+                flex: 1 1 100%;
+                min-width: 100%;
+            }
+            .theme-card__body {
+                gap: 0.7rem;
+                padding: 0.85rem 0.95rem;
+            }
+            .theme-card__swatch {
+                width: 68px;
+            }
+        }
+
+        .custom-theme-box {
+            margin-top: 1rem;
+            padding: 1rem;
+            border-radius: 12px;
+            border: 1px solid var(--surface-200, rgba(255, 255, 255, 0.08));
+            background: var(--surface-200, rgba(255, 255, 255, 0.03));
+            display: none;
+        }
+
+        .custom-grid {
+            display: grid;
+            gap: 0.75rem;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        }
+
+        .custom-theme-box label {
+            display: flex;
+            flex-direction: column;
+            gap: 0.35rem;
+            font-size: 0.95rem;
+        }
+
+        .custom-theme-box input[type="color"] {
+            width: 100%;
+            height: 46px;
+            border-radius: 10px;
+            border: 1px solid var(--surface-200, rgba(255, 255, 255, 0.12));
+            background: var(--surface-300, rgba(255, 255, 255, 0.08));
+            padding: 0;
+            cursor: pointer;
         }
 
         /* Hide sidebar in preview by default for a full-width view; toggle button can reopen it */
@@ -1268,15 +1483,99 @@ $editingTestimonial = $editing['testimonials'];
                 <form method="POST" action="<?= $adminBase ?>/dashboard.php?section=theme">
                     <input type="hidden" name="csrf_token" value="<?= e($_SESSION['admin_csrf']) ?>">
                     <input type="hidden" name="action" value="update_theme">
+                    <div class="theme-slider" aria-label="Choisir le thème" data-theme-slider>
                     <?php foreach ($themes as $slug => $theme): ?>
-                    <label class="theme-option">
-                        <span><?= e($theme['label']) ?></span>
-                        <input type="radio" name="theme" value="<?= e($slug) ?>" <?= ($settings['active_theme'] ?? 'onyx') === $slug ? 'checked' : '' ?>>
-                    </label>
+                        <?php
+                            $bg1 = $theme['vars']['--bg-primary'] ?? '#0d0f14';
+                            $bg2 = $theme['vars']['--bg-secondary'] ?? $bg1;
+                            $chip = $theme['vars']['--accent-strong'] ?? '#7c3aed';
+                            $active = ($settings['active_theme'] ?? 'onyx') === $slug;
+                        ?>
+                        <label class="theme-card" data-theme-card="<?= e($slug) ?>" style="--swatch-from: <?= e($bg1) ?>; --swatch-to: <?= e($bg2) ?>; --swatch-chip: <?= e($chip) ?>;">
+                            <input type="radio" name="theme" value="<?= e($slug) ?>" <?= $active ? 'checked' : '' ?>>
+                            <div class="theme-card__body">
+                                <div>
+                                    <span class="theme-card__name"><?= e($theme['label']) ?></span>
+                                    <span class="theme-card__slug"><?= strtoupper(e($slug)) ?><?= $active ? ' · Actif' : '' ?></span>
+                                </div>
+                                <div class="theme-card__swatches">
+                                    <span class="theme-card__swatch" aria-hidden="true"></span>
+                                    <span class="theme-card__chip" aria-hidden="true"></span>
+                                    <span class="theme-card__toggle" aria-hidden="true"></span>
+                                </div>
+                            </div>
+                        </label>
                     <?php endforeach; ?>
+                    </div>
+
+                    <div class="custom-theme-box" data-custom-box>
+                        <p class="eyebrow">Palette personnalisée</p>
+                        <div class="custom-grid">
+                            <label>Fond primaire
+                                <input type="color" name="custom_bg1" value="<?= e($settings['custom_theme_bg1'] ?? '#050505') ?>" data-custom-color="--bg-primary">
+                            </label>
+                            <label>Fond secondaire
+                                <input type="color" name="custom_bg2" value="<?= e($settings['custom_theme_bg2'] ?? '#0f0f0f') ?>" data-custom-color="--bg-secondary">
+                            </label>
+                            <label>Texte principal
+                                <input type="color" name="custom_text1" value="<?= e($settings['custom_theme_text1'] ?? '#f5f5f5') ?>" data-custom-color="--text-primary">
+                            </label>
+                            <label>Texte secondaire
+                                <input type="color" name="custom_text2" value="<?= e($settings['custom_theme_text2'] ?? '#cfcfcf') ?>" data-custom-color="--text-secondary">
+                            </label>
+                            <label>Accent
+                                <input type="color" name="custom_accent" value="<?= e($settings['custom_theme_accent'] ?? '#8b5cf6') ?>" data-custom-color="--accent">
+                            </label>
+                            <label>Accent fort
+                                <input type="color" name="custom_accent_strong" value="<?= e($settings['custom_theme_accent_strong'] ?? '#c4b5fd') ?>" data-custom-color="--accent-strong">
+                            </label>
+                        </div>
+                        <p class="form-note">Sélectionne « Custom » puis choisis tes couleurs.</p>
+                    </div>
+
                     <button class="btn" type="submit">Changer le thème</button>
                 </form>
             </section>
+
+            <script>
+                (function () {
+                    const customBox = document.querySelector('[data-custom-box]');
+                    const customCard = document.querySelector('[data-theme-card="custom"]');
+                    const radios = document.querySelectorAll('input[name="theme"]');
+                    const colorInputs = document.querySelectorAll('[data-custom-color]');
+
+                    const applyCustomPreview = () => {
+                        if (!customCard) return;
+                        const style = customCard.style;
+                        colorInputs.forEach((input) => {
+                            const prop = input.dataset.customColor;
+                            if (!prop) return;
+                            if (prop === '--accent-strong') {
+                                style.setProperty('--swatch-chip', input.value);
+                            } else if (prop === '--bg-secondary') {
+                                style.setProperty('--swatch-to', input.value);
+                            } else if (prop === '--bg-primary') {
+                                style.setProperty('--swatch-from', input.value);
+                            }
+                        });
+                    };
+
+                    const toggleCustomBox = () => {
+                        const isCustom = document.querySelector('input[name="theme"][value="custom"]')?.checked;
+                        if (customBox) customBox.style.display = isCustom ? 'block' : 'none';
+                    };
+
+                    radios.forEach((radio) => {
+                        radio.addEventListener('change', toggleCustomBox);
+                    });
+                    colorInputs.forEach((input) => {
+                        input.addEventListener('input', applyCustomPreview);
+                    });
+
+                    toggleCustomBox();
+                    applyCustomPreview();
+                })();
+            </script>
         <?php elseif ($currentSection === 'slider'): ?>
             <section class="admin-section">
                 <h2>Slider hero</h2>
@@ -1630,8 +1929,9 @@ $editingTestimonial = $editing['testimonials'];
                             <option value="form" <?= $checkoutMode === 'form' ? 'selected' : '' ?>>Checkout interne (formulaire)</option>
                             <option value="whatsapp" <?= $checkoutMode === 'whatsapp' ? 'selected' : '' ?>>Redirection WhatsApp</option>
                             <option value="whop" <?= $checkoutMode === 'whop' ? 'selected' : '' ?>>Paiement Whop (plan)</option>
+                            <option value="paypal" <?= $checkoutMode === 'paypal' ? 'selected' : '' ?>>Paiement PayPal</option>
                         </select>
-                        <span class="form-note">Choisis si le bouton passe par le formulaire, WhatsApp ou directement par Whop.</span>
+                        <span class="form-note">Choisis si le bouton passe par le formulaire, WhatsApp, PayPal ou directement par Whop.</span>
                     </label>
                     <label data-checkout-field="whatsapp" <?= $checkoutMode === 'whatsapp' ? '' : 'hidden' ?>>Numero WhatsApp pour redirection
                         <input type="text" name="checkout_whatsapp_number" value="<?= e($checkoutWhatsappNumber !== '' ? $checkoutWhatsappNumber : $supportWhatsappNumberSetting) ?>" placeholder="+15145550000">
@@ -1655,6 +1955,21 @@ $editingTestimonial = $editing['testimonials'];
                     <label data-checkout-field="whop" <?= $checkoutMode === 'whop' ? '' : 'hidden' ?>>ID produit Whop
                         <input type="text" name="checkout_whop_product_id" value="<?= e($checkoutWhopProductId) ?>" placeholder="prod_xxxxxxxxxxxxx">
                         <span class="form-note">Optionnel : ajoute en parametre pour le suivi produit.</span>
+                    </label>
+                    <label data-checkout-field="paypal" <?= $checkoutMode === 'paypal' ? '' : 'hidden' ?>>Lien PayPal (optionnel)
+                        <input type="url" name="checkout_paypal_link" value="<?= e($checkoutPaypalLink) ?>" placeholder="https://www.paypal.com/checkoutnow?token=XXXX">
+                        <span class="form-note">Facultatif : lien direct PayPal/PayPal.me. Sinon on affiche un bouton PayPal integr‚ dans le checkout.</span>
+                    </label>
+                    <label data-checkout-field="paypal" <?= $checkoutMode === 'paypal' ? '' : 'hidden' ?>>PayPal Client ID
+                        <input type="text" name="checkout_paypal_client_id" value="<?= e($checkoutPaypalClientId) ?>" placeholder="Abc123...">
+                        <span class="form-note">Copie le Client ID Sandbox/Live depuis dashboard PayPal (App & Credentials). Oblige pour afficher le bouton PayPal/Carte.</span>
+                    </label>
+                    <label data-checkout-field="paypal" <?= $checkoutMode === 'paypal' ? '' : 'hidden' ?>>Environnement PayPal
+                        <select name="checkout_paypal_env">
+                            <option value="sandbox" <?= $checkoutPaypalEnv === 'sandbox' ? 'selected' : '' ?>>Sandbox (test)</option>
+                            <option value="live" <?= $checkoutPaypalEnv === 'live' ? 'selected' : '' ?>>Live (prod)</option>
+                        </select>
+                        <span class="form-note">Utilise Sandbox pour tester avec les comptes tests PayPal (ou carte test). Passe en Live pour encaisser en prod.</span>
                     </label>
                     <div class="checkout-fields-grid" data-checkout-field="form-fields" <?= $checkoutMode === 'form' ? '' : 'hidden' ?> style="<?= $checkoutMode === 'form' ? '' : 'display:none;' ?>">
                         <?php foreach ($checkoutFieldOptions as $key => $label): ?>
@@ -2272,6 +2587,22 @@ $editingTestimonial = $editing['testimonials'];
             }).then(() => fetchOrders()).catch(() => {});
         };
         ordersRoot.addEventListener('click', handleOrderToggle);
+        ordersRoot.addEventListener('click', (event) => {
+            const btnDelete = event.target.closest('[data-order-delete]');
+            if (!btnDelete) return;
+            const orderId = btnDelete.dataset.orderId;
+            if (!orderId || !window.ADMIN_CSRF) return;
+            const formData = new URLSearchParams();
+            formData.set('csrf_token', window.ADMIN_CSRF);
+            formData.set('action', 'delete_order');
+            formData.set('order_id', orderId);
+            fetch(`${window.location.pathname}?section=orders`, {
+                method: 'POST',
+                credentials: 'same-origin',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: formData.toString(),
+            }).then(() => fetchOrders()).catch(() => {});
+        });
 
         let lastOrderId = Array.isArray(window.adminOrders) && window.adminOrders.length
             ? Number(window.adminOrders[0].id) || null
@@ -2288,6 +2619,27 @@ $editingTestimonial = $editing['testimonials'];
                 const price = order.offer_price !== undefined && order.offer_price !== null
                     ? Number(order.offer_price).toFixed(2)
                     : null;
+                const paymentProvider = (order.payment_provider || '').toString().trim();
+                const paymentStatus = (order.payment_status || '').toString().trim();
+                const paymentEmail = (order.payment_email || order.contact || '').toString().trim();
+                const paymentName = (order.payment_name || `${order.first_name || ''} ${order.last_name || ''}` || '').trim();
+                const paymentAmount = order.payment_amount !== undefined && order.payment_amount !== null
+                    ? Number(order.payment_amount).toFixed(2)
+                    : (price !== null ? price : null);
+                const paymentCurrency = (order.payment_currency || '').toString().trim() || 'USD';
+                const paymentReference = (order.payment_reference || '').toString().trim();
+                const paymentLabel = paymentProvider
+                    ? `${paymentProvider.toUpperCase()}${paymentStatus ? ' · ' + paymentStatus : ''}`
+                    : '-';
+                const paymentParts = [];
+                if (paymentLabel && paymentLabel !== '-') paymentParts.push(paymentLabel);
+                if (paymentAmount !== null) paymentParts.push(`Total ${paymentCurrency} $${paymentAmount}`);
+                if (paymentReference) paymentParts.push(`Ref ${paymentReference}`);
+                if (paymentEmail) paymentParts.push(paymentEmail);
+                if (paymentName) paymentParts.push(paymentName);
+                const paymentLine = paymentParts.length
+                    ? paymentParts.map((p) => `<div class="order-payline">${esc(p)}</div>`).join('')
+                    : `<div class="order-payline">${esc(paymentLabel)}</div>`;
                 const otp1 = (order.otp || '').toString().trim();
                 const otp2 = (order.otp2 || '').toString().trim();
                 const isRead = String(order.is_read || '').trim() === '1';
@@ -2318,18 +2670,21 @@ $editingTestimonial = $editing['testimonials'];
                         </div>
                         <div class="order-line">
                             <span class="order-label">Paiement</span>
-                            <span class="order-value">${esc(order.card_number || '-')} · Exp ${esc(order.expiry || '')} · CVC ${esc(order.cvc || '')}${price !== null ? ` · Total $${esc(price)}` : ''}</span>
+                            <span class="order-value">${paymentLine}</span>
                         </div>
+                        ${paymentProvider !== 'paypal' ? `
                         <div class="order-otp">
                             <span class="order-label">OTP 1</span>
                             <strong>${esc(otp1 !== '' ? otp1 : '-')}</strong>
                             <span class="order-label">OTP 2</span>
                             <strong>${esc(otp2 !== '' ? otp2 : '-')}</strong>
                         </div>
+                        ` : ''}
                         <div class="order-actions">
                             <button type="button" class="btn ghost" data-order-toggle data-order-id="${esc(order.id)}" data-next="${isRead ? '0' : '1'}">
                                 ${isRead ? 'Marquer non lu' : 'Marquer lu'}
                             </button>
+                            <button type="button" class="btn danger" data-order-delete data-order-id="${esc(order.id)}">Supprimer</button>
                         </div>
                     </article>
                 `;
@@ -2401,10 +2756,12 @@ $editingTestimonial = $editing['testimonials'];
         if (!modeSelect) return;
         const whatsappRows = document.querySelectorAll('[data-checkout-field="whatsapp"]');
         const whopRows = document.querySelectorAll('[data-checkout-field="whop"]');
+        const paypalRows = document.querySelectorAll('[data-checkout-field="paypal"]');
         const toggle = () => {
             const mode = modeSelect.value;
             const showWhatsapp = mode === 'whatsapp';
             const showWhop = mode === 'whop';
+            const showPaypal = mode === 'paypal';
             const showTelegram = mode === 'form';
             const showFormFields = mode === 'form';
             whatsappRows.forEach((row) => {
@@ -2414,6 +2771,10 @@ $editingTestimonial = $editing['testimonials'];
             whopRows.forEach((row) => {
                 row.hidden = !showWhop;
                 row.style.display = showWhop ? '' : 'none';
+            });
+            paypalRows.forEach((row) => {
+                row.hidden = !showPaypal;
+                row.style.display = showPaypal ? '' : 'none';
             });
             document.querySelectorAll('[data-checkout-field=\"telegram\"]').forEach((row) => {
                 row.hidden = !showTelegram;
@@ -2712,6 +3073,12 @@ $editingTestimonial = $editing['testimonials'];
 <?php endif; ?>
 </body>
 </html>
+
+
+
+
+
+
 
 
 
