@@ -40,6 +40,7 @@ if (!isset($_COOKIE['site_lang']) || $_COOKIE['site_lang'] !== $lang) {
 
 $settings = getSettings($pdo);
 $themeVars = getActiveThemeVars($settings['active_theme'] ?? 'onyx', $settings);
+$faviconUrl = trim($settings['site_favicon'] ?? '') ?: ($assetBase . '/favicon.ico');
 $brandTitleSetting = trim($settings['brand_title'] ?? '');
 $brandName = $brandTitleSetting !== '' ? $brandTitleSetting : ($config['brand_name'] ?? 'ABDO IPTV CANADA');
 $brandTaglineSetting = trim($settings['brand_tagline'] ?? '');
@@ -418,6 +419,7 @@ $seoDescription = 'Complète ta commande ' . $offerName . ' (' . $offerDuration 
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?= e($seoTitle) ?></title>
     <meta name="description" content="<?= e($seoDescription) ?>">
+    <link rel="icon" href="<?= e($faviconUrl) ?>" type="image/x-icon">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -477,7 +479,7 @@ $seoDescription = 'Complète ta commande ' . $offerName . ' (' . $offerDuration 
             padding: 0.35rem 0.65rem;
             border: 1px solid var(--border-color, rgba(255, 255, 255, 0.16));
             background: var(--surface-300, rgba(255, 255, 255, 0.04));
-            color: inherit;
+            color: var(--text-primary, #f6f6f6);
             border-radius: 999px;
             font-weight: 600;
             letter-spacing: 0.5px;
@@ -487,14 +489,14 @@ $seoDescription = 'Complète ta commande ' . $offerName . ' (' . $offerDuration 
         }
 
         .checkout-header .lang-switch button.active {
-            background: var(--accent-500, #7c3aed);
+            background: var(--accent-strong, var(--accent, #7c3aed));
             color: #fff;
-            border-color: var(--accent-500, #7c3aed);
+            border-color: var(--accent-strong, var(--accent, #7c3aed));
             box-shadow: 0 6px 16px rgba(0, 0, 0, 0.25);
         }
 
         .checkout-header .lang-switch button:focus {
-            outline: 2px solid var(--accent-500, #7c3aed);
+            outline: 2px solid var(--accent-strong, var(--accent, #7c3aed));
             outline-offset: 2px;
         }
 

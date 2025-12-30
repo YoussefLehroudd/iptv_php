@@ -338,9 +338,9 @@ body.menu-open .menu-toggle span:nth-of-type(4) {
 }
 
 .btn.primary {
-    background: linear-gradient(120deg, var(--accent), #d4d4d4);
+    background: var(--accent-strong, var(--accent, #8b5cf6));
     color: #050505;
-    box-shadow: 0 20px 40px rgba(255, 255, 255, 0.12);
+    box-shadow: none;
     position: relative;
     overflow: hidden;
 }
@@ -384,7 +384,7 @@ body.menu-open .menu-toggle span:nth-of-type(4) {
     content: '';
     position: absolute;
     inset: 0;
-    background: linear-gradient(115deg, rgba(255, 255, 255, 0.35), transparent 50%);
+    background: rgba(255, 255, 255, 0.12);
     transform: translateX(-140%) skewX(-18deg);
     transition: transform 0.85s ease;
     pointer-events: none;
@@ -403,7 +403,7 @@ body.menu-open .menu-toggle span:nth-of-type(4) {
     position: absolute;
     inset: 6px;
     border-radius: 999px;
-    background: linear-gradient(120deg, rgba(255,255,255,0.22), rgba(255,255,255,0.05));
+    background: rgba(255,255,255,0.12);
     opacity: 0.7;
     animation: pulseStripe 1.2s ease-in-out infinite;
 }
@@ -3088,9 +3088,83 @@ body.admin .order-actions {
     flex-direction: column;
     gap: 0.45rem;
 }
+.admin-media-grid .media-card-body .btn {
+    width: 100%;
+    justify-content: center;
+    text-align: center;
+}
 
 .admin-media-grid .row-actions {
     justify-content: space-between;
+}
+
+.bulk-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-top: 1rem;
+    padding: 0.5rem 0.75rem;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 14px;
+    position: sticky;
+    top: 64px;
+    z-index: 6;
+    backdrop-filter: blur(8px);
+}
+
+.bulk-actions .btn {
+    margin-left: auto;
+}
+
+.bulk-checkbox {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    font-size: 0.9rem;
+    color: var(--muted);
+    cursor: pointer;
+}
+
+.admin-media-grid article,
+.admin-media-list article {
+    position: relative;
+}
+
+.admin-media-grid article .bulk-checkbox,
+.admin-media-list article .bulk-checkbox {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    background: rgba(0, 0, 0, 0.5);
+    padding: 6px 8px;
+    border-radius: 10px;
+    font-size: 12px;
+    color: #fff;
+    box-shadow: 0 6px 14px rgba(0, 0, 0, 0.25);
+}
+
+.admin-media-list article {
+    padding-left: 44px;
+}
+
+.admin-media-list article .bulk-checkbox {
+    left: 12px;
+    right: auto;
+    top: 50%;
+    transform: translateY(-50%);
+}
+
+.bulk-checkbox input {
+    margin: 0;
+    width: 16px;
+    height: 16px;
+    accent-color: var(--accent);
+}
+
+.bulk-actions [data-bulk-delete][disabled] {
+    opacity: 0.55;
+    cursor: not-allowed;
 }
 
 .media-url-field input[type="url"] {

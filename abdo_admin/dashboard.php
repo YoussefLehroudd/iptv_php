@@ -17,6 +17,7 @@ $assetBase = $publicBase . '/assets';
 $adminBase = $basePath . '/abdo_admin';
 $previewUrl = rtrim($publicBase, '/') . '/';
 $settings = getSettings($pdo);
+$faviconUrl = trim($settings['site_favicon'] ?? '') ?: ($assetBase . '/favicon.ico');
 
 $posterCategories = fetchAllAssoc($pdo, 'SELECT * FROM poster_categories ORDER BY label ASC');
 $posterCategoriesBySlug = [];
@@ -131,9 +132,11 @@ function adminEnsureUniqueSlug(PDO $pdo, string $baseSlug): string
 
 $navItems = [
     'content' => ['label' => 'Hero & SEO', 'icon' => adminNavIcon('content')],
+    'branding' => ['label' => 'Logos & favicon', 'icon' => adminNavIcon('content')],
     'preview' => ['label' => 'Vue live', 'icon' => adminNavIcon('preview')],
     'theme' => ['label' => 'Theme & couleurs', 'icon' => adminNavIcon('theme')],
     'slider' => ['label' => 'Slider hero', 'icon' => adminNavIcon('slider')],
+    'platforms' => ['label' => 'Plateformes', 'icon' => adminNavIcon('video')],
     'poster_categories' => ['label' => 'Poster categories', 'icon' => adminNavIcon('content')],
 ];
 foreach ($posterCategories as $category) {
@@ -227,8 +230,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 'highlight_video_copy',
                 'brand_title',
                 'brand_tagline',
-                'brand_logo_desktop',
-                'brand_logo_mobile',
             ];
             $maxLengths = [
                 'brand_title' => 26,
@@ -247,7 +248,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
                 setSetting($pdo, $field, $value, true);
             }
-            foreach (['brand_logo_desktop_file' => 'brand_logo_desktop', 'brand_logo_mobile_file' => 'brand_logo_mobile'] as $fileKey => $settingKey) {
+            adminFlashRedirect('Contenu mise à jour.', 'content', $adminBase);
+            break;
+
+        case 'update_branding':
+            foreach (['brand_logo_desktop', 'brand_logo_mobile', 'site_favicon'] as $field) {
+                if (array_key_exists($field, $_POST)) {
+                    $value = trim($_POST[$field] ?? '');
+                    setSetting($pdo, $field, $value, true);
+                }
+            }
+            foreach ([
+                'brand_logo_desktop_file' => 'brand_logo_desktop',
+                'brand_logo_mobile_file' => 'brand_logo_mobile',
+                'site_favicon_file' => 'site_favicon',
+            ] as $fileKey => $settingKey) {
                 if (!empty($_FILES[$fileKey]['tmp_name'])) {
                     $upload = uploadToCloudinary($_FILES[$fileKey]['tmp_name'], 'iptv_abdo/brand', $config['cloudinary']);
                     if ($upload) {
@@ -255,7 +270,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     }
                 }
             }
-            adminFlashRedirect('Contenu mise à jour.', 'content', $adminBase);
+            adminFlashRedirect('Branding mis à jour.', 'branding', $adminBase);
             break;
 
         case 'update_theme':
@@ -296,6 +311,128 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 adminFlashRedirect('Thème changé.', $redirectSection, $adminBase);
             }
             break;
+
+        case 'bulk_delete_movie_posters':
+            $ids = isset($_POST['ids']) ? array_filter(array_map('intval', (array) $_POST['ids'])) : [];
+            foreach ($ids as $id) {
+                deleteRecord($pdo, 'movie_posters', $id);
+            }
+            $_SESSION['admin_flash'] = $ids ? 'Posters supprimés.' : 'Aucune sélection.';
+            header('Location: ' . $adminBase . '/dashboard.php?section=' . urlencode($currentSection) . $postersViewQuery);
+            exit;
+
+        case 'bulk_delete_sport_events':
+            $ids = isset($_POST['ids']) ? array_filter(array_map('intval', (array) $_POST['ids'])) : [];
+            foreach ($ids as $id) {
+                deleteRecord($pdo, 'sport_events', $id);
+            }
+            $_SESSION['admin_flash'] = $ids ? 'Événements supprimés.' : 'Aucune sélection.';
+            header('Location: ' . $adminBase . '/dashboard.php?section=sports' . $sportsViewQuery);
+            exit;
+
+        case 'bulk_delete_testimonials':
+            $ids = isset($_POST['ids']) ? array_filter(array_map('intval', (array) $_POST['ids'])) : [];
+            foreach ($ids as $id) {
+                deleteRecord($pdo, 'testimonials', $id);
+            }
+            $_SESSION['admin_flash'] = $ids ? 'Témoignages supprimés.' : 'Aucune sélection.';
+            header('Location: ' . $adminBase . '/dashboard.php?section=testimonials');
+            exit;
+        case 'add_platform_card':
+            $platforms = json_decode($settings['platform_cards_json'] ?? '[]', true);
+            if (!is_array($platforms)) {
+                $platforms = [];
+            }
+            $title = trim($_POST['platform_title'] ?? '');
+            $bg = trim($_POST['platform_bg'] ?? '');
+            $image = trim($_POST['platform_image'] ?? '');
+            if (!empty($_FILES['platform_image_file']['tmp_name'])) {
+                $upload = uploadToCloudinary($_FILES['platform_image_file']['tmp_name'], 'iptv_abdo/platforms', $config['cloudinary']);
+                if ($upload) {
+                    $image = $upload;
+                }
+            }
+            if ($title !== '') {
+                $platforms[] = [
+                    'id' => bin2hex(random_bytes(4)),
+                    'title' => $title,
+                    'bg' => $bg !== '' ? $bg : 'linear-gradient(135deg, #0f172a, #1e293b)',
+                    'image_url' => $image,
+                ];
+                setSetting($pdo, 'platform_cards_json', json_encode($platforms, JSON_UNESCAPED_SLASHES));
+                $_SESSION['admin_flash'] = 'Plateforme ajoutée.';
+            }
+            header('Location: ' . $adminBase . '/dashboard.php?section=platforms');
+            exit;
+        case 'edit_platform_card':
+            $platforms = json_decode($settings['platform_cards_json'] ?? '[]', true);
+            if (!is_array($platforms)) {
+                $platforms = [];
+            }
+            $id = trim($_POST['platform_id'] ?? '');
+            if ($id !== '') {
+                foreach ($platforms as &$platform) {
+                    if (($platform['id'] ?? '') === $id) {
+                        $platform['title'] = trim($_POST['platform_title'] ?? ($platform['title'] ?? ''));
+                        $platform['bg'] = trim($_POST['platform_bg'] ?? ($platform['bg'] ?? ''));
+                        $image = trim($_POST['platform_image'] ?? ($platform['image_url'] ?? ''));
+                        if (!empty($_FILES['platform_image_file']['tmp_name'])) {
+                            $upload = uploadToCloudinary($_FILES['platform_image_file']['tmp_name'], 'iptv_abdo/platforms', $config['cloudinary']);
+                            if ($upload) {
+                                $image = $upload;
+                            }
+                        }
+                        $platform['image_url'] = $image;
+                        $_SESSION['admin_flash'] = 'Plateforme mise à jour.';
+                        break;
+                    }
+                }
+                unset($platform);
+                setSetting($pdo, 'platform_cards_json', json_encode($platforms, JSON_UNESCAPED_SLASHES));
+            }
+            header('Location: ' . $adminBase . '/dashboard.php?section=platforms');
+            exit;
+        case 'edit_platform_card':
+            $platforms = json_decode($settings['platform_cards_json'] ?? '[]', true);
+            if (!is_array($platforms)) {
+                $platforms = [];
+            }
+            $id = trim($_POST['platform_id'] ?? '');
+            if ($id !== '') {
+                foreach ($platforms as &$platform) {
+                    if (($platform['id'] ?? '') === $id) {
+                        $platform['title'] = trim($_POST['platform_title'] ?? ($platform['title'] ?? ''));
+                        $platform['bg'] = trim($_POST['platform_bg'] ?? ($platform['bg'] ?? ''));
+                        $image = trim($_POST['platform_image'] ?? ($platform['image_url'] ?? ''));
+                        if (!empty($_FILES['platform_image_file']['tmp_name'])) {
+                            $upload = uploadToCloudinary($_FILES['platform_image_file']['tmp_name'], 'iptv_abdo/platforms', $config['cloudinary']);
+                            if ($upload) {
+                                $image = $upload;
+                            }
+                        }
+                        $platform['image_url'] = $image;
+                        $_SESSION['admin_flash'] = 'Plateforme mise à jour.';
+                        break;
+                    }
+                }
+                unset($platform);
+                setSetting($pdo, 'platform_cards_json', json_encode($platforms, JSON_UNESCAPED_SLASHES));
+            }
+            header('Location: ' . $adminBase . '/dashboard.php?section=platforms');
+            exit;
+        case 'delete_platform_card':
+            $platforms = json_decode($settings['platform_cards_json'] ?? '[]', true);
+            if (!is_array($platforms)) {
+                $platforms = [];
+            }
+            $id = trim($_POST['platform_id'] ?? '');
+            if ($id !== '') {
+                $platforms = array_values(array_filter($platforms, static fn($item) => ($item['id'] ?? '') !== $id));
+                setSetting($pdo, 'platform_cards_json', json_encode($platforms, JSON_UNESCAPED_SLASHES));
+                $_SESSION['admin_flash'] = 'Plateforme supprimée.';
+            }
+            header('Location: ' . $adminBase . '/dashboard.php?section=platforms');
+            exit;
         case 'update_support_whatsapp':
             $supportNumber = trim($_POST['support_whatsapp_number'] ?? '');
             setSetting($pdo, 'support_whatsapp_number', $supportNumber);
@@ -828,6 +965,10 @@ $checkoutEnabled = ($settings['checkout_enabled'] ?? '1') === '1';
 $checkoutWhatsappNumber = trim($settings['checkout_whatsapp_number'] ?? '');
 $checkoutTelegramChatId = trim($settings['checkout_telegram_chat_id'] ?? '');
 $checkoutTelegramToken = trim($settings['checkout_telegram_bot_token'] ?? '');
+$platformCardsSetting = json_decode($settings['platform_cards_json'] ?? '[]', true);
+if (!is_array($platformCardsSetting)) {
+    $platformCardsSetting = [];
+}
 $checkoutModeSetting = trim($settings['checkout_mode'] ?? '');
 $checkoutMode = in_array($checkoutModeSetting, ['form', 'whatsapp', 'whop', 'paypal'], true)
     ? $checkoutModeSetting
@@ -942,6 +1083,7 @@ $editingTestimonial = $editing['testimonials'];
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Panel ABDO IPTV</title>
+    <link rel="icon" href="<?= e($faviconUrl) ?>" type="image/x-icon">
     <link rel="stylesheet" href="<?= $assetBase ?>/css/admin.css?v=<?= time() ?>">
     <style>
         /* Admin panel needs copy/paste + text selection */
@@ -1067,24 +1209,15 @@ $editingTestimonial = $editing['testimonials'];
 
         /* Theme picker slider */
         .theme-slider {
-            display: flex;
-            flex-wrap: wrap;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
             gap: 0.8rem;
             padding: 0.35rem 0;
-            overflow: hidden;
-            scrollbar-width: none;
-            -ms-overflow-style: none;
-        }
-
-        .theme-slider::-webkit-scrollbar {
-            display: none;
         }
 
         .theme-card {
             position: relative;
-            flex: 1 1 260px;
-            min-width: 240px;
-            max-width: 100%;
+            min-width: 0;
             cursor: pointer;
         }
 
@@ -1105,6 +1238,7 @@ $editingTestimonial = $editing['testimonials'];
             border: 1px solid var(--surface-200, rgba(255, 255, 255, 0.08));
             background: var(--surface-200, rgba(255, 255, 255, 0.03));
             transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
+            min-height: 86px;
         }
 
         .theme-card__name {
@@ -1186,9 +1320,8 @@ $editingTestimonial = $editing['testimonials'];
         }
 
         @media (max-width: 720px) {
-            .theme-card {
-                flex: 1 1 100%;
-                min-width: 100%;
+            .theme-slider {
+                grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
             }
             .theme-card__body {
                 gap: 0.7rem;
@@ -1383,26 +1516,6 @@ $editingTestimonial = $editing['testimonials'];
                         <input type="text" name="brand_tagline" maxlength="48" value="<?= e($brandTaglineSetting !== '' ? $brandTaglineSetting : $brandTagline) ?>">
                         <span class="form-note">Court texte apres le nom. Exemple : Ultra IPTV · Canada.</span>
                     </label>
-                    <label>Logo desktop (280x64px)
-                        <input type="file" name="brand_logo_desktop_file" accept="image/*">
-                        <span class="form-note">PNG/SVG recommande. Utilise sur desktop.</span>
-                    </label>
-                    <label>Ou URL logo desktop
-                        <input type="url" name="brand_logo_desktop" placeholder="https://" value="<?= e($settings['brand_logo_desktop'] ?? '') ?>">
-                        <?php if ($brandLogoDesktop): ?>
-                            <span class="form-note">Actuel : <a class="link-light" href="<?= e($brandLogoDesktop) ?>" target="_blank" rel="noopener">Voir le logo</a></span>
-                        <?php endif; ?>
-                    </label>
-                    <label>Logo mobile (140x40px)
-                        <input type="file" name="brand_logo_mobile_file" accept="image/*">
-                        <span class="form-note">Taille ideale: 140x40px. Par defaut on utilise le logo desktop.</span>
-                    </label>
-                    <label>Ou URL logo mobile
-                        <input type="url" name="brand_logo_mobile" placeholder="https://" value="<?= e($settings['brand_logo_mobile'] ?? '') ?>">
-                        <?php if ($brandLogoMobile): ?>
-                            <span class="form-note">Actuel : <a class="link-light" href="<?= e($brandLogoMobile) ?>" target="_blank" rel="noopener">Voir le logo mobile</a></span>
-                        <?php endif; ?>
-                    </label>
                     <label>Titre hero
                         <input type="text" name="hero_title" value="<?= e($settings['hero_title'] ?? '') ?>" required>
                     </label>
@@ -1431,6 +1544,147 @@ $editingTestimonial = $editing['testimonials'];
                     <button class="btn" type="submit">Sauvegarder</button>
                 </form>
             </section>
+        <?php elseif ($currentSection === 'branding'): ?>
+            <section class="admin-section">
+                <h2>Logos & favicon</h2>
+                <form method="POST" action="<?= $adminBase ?>/dashboard.php?section=branding" enctype="multipart/form-data">
+                    <input type="hidden" name="csrf_token" value="<?= e($_SESSION['admin_csrf']) ?>">
+                    <input type="hidden" name="action" value="update_branding">
+                    <label>Logo desktop (280x64px)
+                        <input type="file" name="brand_logo_desktop_file" accept="image/*">
+                        <span class="form-note">PNG/SVG recommande. Utilise sur desktop.</span>
+                    </label>
+                    <label>Ou URL logo desktop
+                        <input type="url" name="brand_logo_desktop" placeholder="https://" value="<?= e($settings['brand_logo_desktop'] ?? '') ?>">
+                        <?php if ($brandLogoDesktop): ?>
+                            <span class="form-note">Actuel : <a class="link-light" href="<?= e($brandLogoDesktop) ?>" target="_blank" rel="noopener">Voir le logo</a></span>
+                        <?php endif; ?>
+                    </label>
+                    <label>Logo mobile (140x40px)
+                        <input type="file" name="brand_logo_mobile_file" accept="image/*">
+                        <span class="form-note">Taille ideale: 140x40px. Par defaut on utilise le logo desktop.</span>
+                    </label>
+                    <label>Ou URL logo mobile
+                        <input type="url" name="brand_logo_mobile" placeholder="https://" value="<?= e($settings['brand_logo_mobile'] ?? '') ?>">
+                        <?php if ($brandLogoMobile): ?>
+                            <span class="form-note">Actuel : <a class="link-light" href="<?= e($brandLogoMobile) ?>" target="_blank" rel="noopener">Voir le logo mobile</a></span>
+                        <?php endif; ?>
+                    </label>
+                    <label>Favicon / Icone du site (32x32 ou 64x64)
+                        <input type="file" name="site_favicon_file" accept="image/*">
+                        <span class="form-note">PNG/SVG/Ico · Sera utilisé comme icône d'onglet (site + panel).</span>
+                    </label>
+                    <label>Ou URL favicon
+                        <input type="url" name="site_favicon" placeholder="https://" value="<?= e($settings['site_favicon'] ?? '') ?>">
+                        <?php if (!empty($settings['site_favicon'])): ?>
+                            <span class="form-note">Actuel : <a class="link-light" href="<?= e($settings['site_favicon']) ?>" target="_blank" rel="noopener">Voir le favicon</a></span>
+                        <?php endif; ?>
+                    </label>
+                    <button class="btn" type="submit">Enregistrer</button>
+                </form>
+            </section>
+        <?php elseif ($currentSection === 'platforms'): ?>
+            <section class="admin-section">
+                <h2>Plateformes streaming</h2>
+                <form id="platform-form" method="POST" action="<?= $adminBase ?>/dashboard.php?section=platforms" enctype="multipart/form-data">
+                    <input type="hidden" name="csrf_token" value="<?= e($_SESSION['admin_csrf']) ?>">
+                    <input type="hidden" name="action" value="add_platform_card">
+                    <input type="hidden" name="platform_id" value="">
+                    <div class="form-grid two">
+                        <label>Nom de la plateforme
+                            <input type="text" name="platform_title" placeholder="Netflix, HBO Max..." required>
+                        </label>
+                        <label>Dégradé de fond
+                            <input type="text" name="platform_bg" placeholder="linear-gradient(135deg, #0f1b2c, #1b1f2f)">
+                            <span class="form-note">Hex ou gradient CSS (optionnel).</span>
+                        </label>
+                        <label>URL image
+                            <input type="url" name="platform_image" placeholder="https://">
+                        </label>
+                        <label>Upload image
+                            <input type="file" name="platform_image_file" accept="image/*">
+                        </label>
+                    </div>
+                    <div class="row gap-8">
+                        <button class="btn" type="submit" data-platform-submit>Ajouter</button>
+                        <button class="btn ghost" type="button" data-platform-reset>Annulerr</button>
+                    </div>
+                </form>
+                <div class="admin-media-grid" style="margin-top: 1.5rem;">
+                    <?php if (empty($platformCardsSetting)): ?>
+                        <p class="form-note">Aucune plateforme pour l'instant.</p>
+                    <?php else: ?>
+                        <?php foreach ($platformCardsSetting as $platform): ?>
+                            <article>
+                                <div class="media-card-body">
+                                    <strong><?= e($platform['title'] ?? '') ?></strong>
+                                    <?php if (!empty($platform['image_url'])): ?>
+                                        <img src="<?= e($platform['image_url']) ?>" alt="<?= e($platform['title'] ?? '') ?>" style="height:160px;object-fit:cover;border-radius:12px;">
+                                    <?php endif; ?>
+                                    <?php if (!empty($platform['bg'])): ?>
+                                        <small><?= e($platform['bg']) ?></small>
+                                    <?php endif; ?>
+                                    <button class="btn ghost" type="button"
+                                            data-platform-edit
+                                            data-id="<?= e($platform['id'] ?? '') ?>"
+                                            data-title="<?= e($platform['title'] ?? '') ?>"
+                                            data-bg="<?= e($platform['bg'] ?? '') ?>"
+                                            data-image="<?= e($platform['image_url'] ?? '') ?>">
+                                        Modifier
+                                    </button>
+                                    <form method="POST" action="<?= $adminBase ?>/dashboard.php?section=platforms" onsubmit="return confirm('Supprimer cette plateforme ?');">
+                                        <input type="hidden" name="csrf_token" value="<?= e($_SESSION['admin_csrf']) ?>">
+                                        <input type="hidden" name="action" value="delete_platform_card">
+                                        <input type="hidden" name="platform_id" value="<?= e($platform['id'] ?? '') ?>">
+                                        <button class="btn ghost danger" type="submit">Supprimer</button>
+                                    </form>
+                                </div>
+                            </article>
+                        <?php endforeach; ?>
+                    <?php endif; ?>
+                </div>
+            </section>
+            <script>
+                (function () {
+                    const form = document.getElementById('platform-form');
+                    if (!form) return;
+                    const actionInput = form.querySelector('input[name=action]');
+                    const idInput = form.querySelector('input[name=platform_id]');
+                    const titleInput = form.querySelector('input[name=platform_title]');
+                    const bgInput = form.querySelector('input[name=platform_bg]');
+                    const imgInput = form.querySelector('input[name=platform_image]');
+                    const submitBtn = form.querySelector('[data-platform-submit]');
+                    const resetBtn = form.querySelector('[data-platform-reset]');
+
+                    const setAddMode = () => {
+                        if (actionInput) actionInput.value = 'add_platform_card';
+                        if (idInput) idInput.value = '';
+                        if (titleInput) titleInput.value = '';
+                        if (bgInput) bgInput.value = '';
+                        if (imgInput) imgInput.value = '';
+                        if (submitBtn) submitBtn.textContent = 'Ajouter';
+                        if (resetBtn) resetBtn.style.display = 'none';
+                    };
+
+                    document.querySelectorAll('[data-platform-edit]').forEach((btn) => {
+                        btn.addEventListener('click', () => {
+                            if (submitBtn) submitBtn.textContent = 'Mettre à jour';
+                            if (actionInput) actionInput.value = 'edit_platform_card';
+                            if (idInput) idInput.value = btn.dataset.id || '';
+                            if (titleInput) titleInput.value = btn.dataset.title || '';
+                            if (bgInput) bgInput.value = btn.dataset.bg || '';
+                            if (imgInput) imgInput.value = btn.dataset.image || '';
+                            titleInput?.focus();
+                            window.scrollTo({ top: form.offsetTop - 10, behavior: 'smooth' });
+                            if (resetBtn) resetBtn.style.display = 'inline-flex';
+                        });
+                    });
+
+                    resetBtn?.addEventListener('click', setAddMode);
+                    // Also reset on page load
+                    setAddMode();
+                })();
+            </script>
         <?php elseif ($currentSection === 'preview'): ?>
             <section class="admin-section live-preview">
                 <div class="preview-toolbar">
@@ -1456,6 +1710,7 @@ $editingTestimonial = $editing['testimonials'];
                     <p class="eyebrow">Edition rapide du texte</p>
                     <div class="quick-edit-grid">
                         <a href="<?= $adminBase ?>/dashboard.php?section=content">Hero & SEO</a>
+                        <a href="<?= $adminBase ?>/dashboard.php?section=branding">Logos & favicon</a>
                         <a href="<?= $adminBase ?>/dashboard.php?section=slider">Slider hero</a>
                         <a href="<?= $adminBase ?>/dashboard.php?section=offers">Offres</a>
                         <a href="<?= $adminBase ?>/dashboard.php?section=providers">Providers</a>
@@ -1478,8 +1733,9 @@ $editingTestimonial = $editing['testimonials'];
                 </div>
             </section>
         <?php elseif ($currentSection === 'theme'): ?>
+            <?php $themeCount = is_array($themes) ? count($themes) : 0; ?>
             <section class="admin-section">
-                <h2>Thème & couleurs</h2>
+                <h2>Thème & couleurs<?= $themeCount ? ' (' . $themeCount . ')' : '' ?></h2>
                 <form method="POST" action="<?= $adminBase ?>/dashboard.php?section=theme">
                     <input type="hidden" name="csrf_token" value="<?= e($_SESSION['admin_csrf']) ?>">
                     <input type="hidden" name="action" value="update_theme">
@@ -1735,13 +1991,65 @@ $editingTestimonial = $editing['testimonials'];
                 <?php if (empty($activeMoviePosterList)): ?>
                     <p class="form-note">Aucun poster pour cette catégorie pour l'instant.</p>
                 <?php elseif ($postersView === 'grid'): ?>
-                    <div class="admin-media-grid">
-                        <?php foreach ($activeMoviePosterList as $poster): ?>
-                            <?php $posterSlug = $poster['category_slug'] ?? ($currentPosterCategory['slug'] ?? ''); ?>
-                            <article>
-                                <img src="<?= e($poster['image_url']) ?>" alt="<?= e($poster['title']) ?>">
-                                <div class="media-card-body">
-                                    <strong><?= e($poster['title']) ?></strong>
+                    <form class="bulk-form" method="POST" action="<?= $adminBase ?>/dashboard.php?section=<?= e($currentSection) ?><?= $postersViewQuery ?>">
+                        <input type="hidden" name="csrf_token" value="<?= e($_SESSION['admin_csrf']) ?>">
+                        <input type="hidden" name="action" value="bulk_delete_movie_posters">
+                        <div class="bulk-actions">
+                            <label class="bulk-checkbox">
+                                <input type="checkbox" data-select-all>
+                                <span>Sélectionner tout</span>
+                            </label>
+                            <button class="btn danger" type="submit" data-bulk-delete disabled>Supprimer la sélection</button>
+                        </div>
+                        <div class="admin-media-grid">
+                            <?php foreach ($activeMoviePosterList as $poster): ?>
+                                <?php $posterSlug = $poster['category_slug'] ?? ($currentPosterCategory['slug'] ?? ''); ?>
+                                <article>
+                                    <label class="bulk-checkbox">
+                                        <input type="checkbox" name="ids[]" value="<?= (int) $poster['id'] ?>">
+                                        <span class="sr-only">Sélectionner</span>
+                                    </label>
+                                    <img src="<?= e($poster['image_url']) ?>" alt="<?= e($poster['title']) ?>">
+                                    <div class="media-card-body">
+                                        <strong><?= e($poster['title']) ?></strong>
+                                        <div class="row-actions">
+                                            <?php
+                                            $posterTarget = ($posterSlug === 'sports-events') ? 'sports' : 'poster_' . $posterSlug;
+                                            $targetQuery = ($posterTarget === 'sports') ? '' : $postersViewQuery;
+                                            ?>
+                                            <a class="link-light" href="<?= $adminBase ?>/dashboard.php?section=<?= urlencode($posterTarget) ?><?= $targetQuery ?>&edit=movie_posters&id=<?= (int) $poster['id'] ?>">Modifier</a>
+                                            <a class="link-light" href="<?= $adminBase ?>/dashboard.php?section=<?= urlencode($posterTarget) ?><?= $targetQuery ?>&delete=movie_posters&id=<?= (int) $poster['id'] ?>">Supprimer</a>
+                                        </div>
+                                    </div>
+                                </article>
+                            <?php endforeach; ?>
+                        </div>
+                    </form>
+                <?php else: ?>
+                    <form class="bulk-form" method="POST" action="<?= $adminBase ?>/dashboard.php?section=<?= e($currentSection) ?><?= $postersViewQuery ?>">
+                        <input type="hidden" name="csrf_token" value="<?= e($_SESSION['admin_csrf']) ?>">
+                        <input type="hidden" name="action" value="bulk_delete_movie_posters">
+                        <div class="bulk-actions">
+                            <label class="bulk-checkbox">
+                                <input type="checkbox" data-select-all>
+                                <span>Sélectionner tout</span>
+                            </label>
+                            <button class="btn danger" type="submit" data-bulk-delete disabled>Supprimer la sélection</button>
+                        </div>
+                        <div class="list admin-media-list">
+                            <?php foreach ($activeMoviePosterList as $poster): ?>
+                                <?php $posterSlug = $poster['category_slug'] ?? ($currentPosterCategory['slug'] ?? ''); ?>
+                                <article>
+                                    <label class="bulk-checkbox">
+                                        <input type="checkbox" name="ids[]" value="<?= (int) $poster['id'] ?>">
+                                        <span class="sr-only">Sélectionner</span>
+                                    </label>
+                                    <div class="admin-media-thumb">
+                                        <img src="<?= e($poster['image_url']) ?>" alt="<?= e($poster['title']) ?>">
+                                        <div>
+                                            <strong><?= e($poster['title']) ?></strong>
+                                        </div>
+                                    </div>
                                     <div class="row-actions">
                                         <?php
                                         $posterTarget = ($posterSlug === 'sports-events') ? 'sports' : 'poster_' . $posterSlug;
@@ -1750,32 +2058,10 @@ $editingTestimonial = $editing['testimonials'];
                                         <a class="link-light" href="<?= $adminBase ?>/dashboard.php?section=<?= urlencode($posterTarget) ?><?= $targetQuery ?>&edit=movie_posters&id=<?= (int) $poster['id'] ?>">Modifier</a>
                                         <a class="link-light" href="<?= $adminBase ?>/dashboard.php?section=<?= urlencode($posterTarget) ?><?= $targetQuery ?>&delete=movie_posters&id=<?= (int) $poster['id'] ?>">Supprimer</a>
                                     </div>
-                                </div>
-                            </article>
-                        <?php endforeach; ?>
-                    </div>
-                <?php else: ?>
-                    <div class="list admin-media-list">
-                        <?php foreach ($activeMoviePosterList as $poster): ?>
-                            <?php $posterSlug = $poster['category_slug'] ?? ($currentPosterCategory['slug'] ?? ''); ?>
-                            <article>
-                                <div class="admin-media-thumb">
-                                    <img src="<?= e($poster['image_url']) ?>" alt="<?= e($poster['title']) ?>">
-                                    <div>
-                                        <strong><?= e($poster['title']) ?></strong>
-                                    </div>
-                                </div>
-                                <div class="row-actions">
-                                    <?php
-                                    $posterTarget = ($posterSlug === 'sports-events') ? 'sports' : 'poster_' . $posterSlug;
-                                    $targetQuery = ($posterTarget === 'sports') ? '' : $postersViewQuery;
-                                    ?>
-                                    <a class="link-light" href="<?= $adminBase ?>/dashboard.php?section=<?= urlencode($posterTarget) ?><?= $targetQuery ?>&edit=movie_posters&id=<?= (int) $poster['id'] ?>">Modifier</a>
-                                    <a class="link-light" href="<?= $adminBase ?>/dashboard.php?section=<?= urlencode($posterTarget) ?><?= $targetQuery ?>&delete=movie_posters&id=<?= (int) $poster['id'] ?>">Supprimer</a>
-                                </div>
-                            </article>
-                        <?php endforeach; ?>
-                    </div>
+                                </article>
+                            <?php endforeach; ?>
+                        </div>
+                    </form>
                 <?php endif; ?>
             </section>
         <?php elseif ($currentSection === 'sports'): ?>
@@ -1818,37 +2104,67 @@ $editingTestimonial = $editing['testimonials'];
                 <?php if (empty($sportEvents)): ?>
                     <p class="form-note">Aucun visuel sport pour le moment.</p>
                 <?php elseif ($sportsView === 'grid'): ?>
-                    <div class="admin-media-grid">
-                        <?php foreach ($sportEvents as $event): ?>
-                            <article>
-                                <img src="<?= e($event['image_url']) ?>" alt="<?= e($event['title']) ?>">
-                                <div class="media-card-body">
-                                    <strong><?= e($event['title']) ?></strong>
+                    <form class="bulk-form" method="POST" action="<?= $adminBase ?>/dashboard.php?section=sports<?= $sportsViewQuery ?>">
+                        <input type="hidden" name="csrf_token" value="<?= e($_SESSION['admin_csrf']) ?>">
+                        <input type="hidden" name="action" value="bulk_delete_sport_events">
+                        <div class="bulk-actions">
+                            <label class="bulk-checkbox">
+                                <input type="checkbox" data-select-all>
+                                <span>Sélectionner tout</span>
+                            </label>
+                            <button class="btn danger" type="submit" data-bulk-delete disabled>Supprimer la sélection</button>
+                        </div>
+                        <div class="admin-media-grid">
+                            <?php foreach ($sportEvents as $event): ?>
+                                <article>
+                                    <label class="bulk-checkbox">
+                                        <input type="checkbox" name="ids[]" value="<?= (int) $event['id'] ?>">
+                                        <span class="sr-only">Sélectionner</span>
+                                    </label>
+                                    <img src="<?= e($event['image_url']) ?>" alt="<?= e($event['title']) ?>">
+                                    <div class="media-card-body">
+                                        <strong><?= e($event['title']) ?></strong>
+                                        <div class="row-actions">
+                                            <a class="link-light" href="<?= $adminBase ?>/dashboard.php?section=sports<?= $sportsViewQuery ?>&edit=sport_events&id=<?= (int) $event['id'] ?>">Modifier</a>
+                                            <a class="link-light" href="<?= $adminBase ?>/dashboard.php?section=sports<?= $sportsViewQuery ?>&delete=sport_events&id=<?= (int) $event['id'] ?>">Supprimer</a>
+                                        </div>
+                                    </div>
+                                </article>
+                            <?php endforeach; ?>
+                        </div>
+                    </form>
+                <?php else: ?>
+                    <form class="bulk-form" method="POST" action="<?= $adminBase ?>/dashboard.php?section=sports<?= $sportsViewQuery ?>">
+                        <input type="hidden" name="csrf_token" value="<?= e($_SESSION['admin_csrf']) ?>">
+                        <input type="hidden" name="action" value="bulk_delete_sport_events">
+                        <div class="bulk-actions">
+                            <label class="bulk-checkbox">
+                                <input type="checkbox" data-select-all>
+                                <span>Sélectionner tout</span>
+                            </label>
+                            <button class="btn danger" type="submit" data-bulk-delete disabled>Supprimer la sélection</button>
+                        </div>
+                        <div class="list admin-media-list">
+                            <?php foreach ($sportEvents as $event): ?>
+                                <article>
+                                    <label class="bulk-checkbox">
+                                        <input type="checkbox" name="ids[]" value="<?= (int) $event['id'] ?>">
+                                        <span class="sr-only">Sélectionner</span>
+                                    </label>
+                                    <div class="admin-media-thumb">
+                                        <img src="<?= e($event['image_url']) ?>" alt="<?= e($event['title']) ?>">
+                                        <div>
+                                            <strong><?= e($event['title']) ?></strong>
+                                        </div>
+                                    </div>
                                     <div class="row-actions">
                                         <a class="link-light" href="<?= $adminBase ?>/dashboard.php?section=sports<?= $sportsViewQuery ?>&edit=sport_events&id=<?= (int) $event['id'] ?>">Modifier</a>
                                         <a class="link-light" href="<?= $adminBase ?>/dashboard.php?section=sports<?= $sportsViewQuery ?>&delete=sport_events&id=<?= (int) $event['id'] ?>">Supprimer</a>
                                     </div>
-                                </div>
-                            </article>
-                        <?php endforeach; ?>
-                    </div>
-                <?php else: ?>
-                    <div class="list admin-media-list">
-                        <?php foreach ($sportEvents as $event): ?>
-                            <article>
-                                <div class="admin-media-thumb">
-                                    <img src="<?= e($event['image_url']) ?>" alt="<?= e($event['title']) ?>">
-                                    <div>
-                                        <strong><?= e($event['title']) ?></strong>
-                                    </div>
-                                </div>
-                                <div class="row-actions">
-                                    <a class="link-light" href="<?= $adminBase ?>/dashboard.php?section=sports<?= $sportsViewQuery ?>&edit=sport_events&id=<?= (int) $event['id'] ?>">Modifier</a>
-                                    <a class="link-light" href="<?= $adminBase ?>/dashboard.php?section=sports<?= $sportsViewQuery ?>&delete=sport_events&id=<?= (int) $event['id'] ?>">Supprimer</a>
-                                </div>
-                            </article>
-                        <?php endforeach; ?>
-                    </div>
+                                </article>
+                            <?php endforeach; ?>
+                        </div>
+                    </form>
                 <?php endif; ?>
             </section>
         <?php elseif ($currentSection === 'testimonials'): ?>
@@ -1884,25 +2200,44 @@ $editingTestimonial = $editing['testimonials'];
                         <?php endif; ?>
                     </div>
                 </form>
-                <div class="list admin-media-list">
-                    <?php foreach ($testimonialGallery as $testimonial): ?>
-                        <article>
-                            <div class="admin-media-thumb">
-                                <img src="<?= e($testimonial['capture_url']) ?>" alt="<?= e($testimonial['name']) ?>">
-                                <div>
-                                    <strong><?= e($testimonial['name']) ?></strong>
-                                    <?php if (!empty($testimonial['message'])): ?>
-                                        <small><?= e($testimonial['message']) ?></small>
-                                    <?php endif; ?>
-                                </div>
-                            </div>
-                            <div class="row-actions">
-                                <a class="link-light" href="<?= $adminBase ?>/dashboard.php?section=testimonials&edit=testimonials&id=<?= (int) $testimonial['id'] ?>">Modifier</a>
-                                <a class="link-light" href="<?= $adminBase ?>/dashboard.php?section=testimonials&delete=testimonials&id=<?= (int) $testimonial['id'] ?>">Supprimer</a>
-                            </div>
-                        </article>
-                    <?php endforeach; ?>
-                </div>
+                <?php if (empty($testimonialGallery)): ?>
+                    <p class="form-note">Aucun témoignage visuel pour le moment.</p>
+                <?php else: ?>
+                    <form class="bulk-form" method="POST" action="<?= $adminBase ?>/dashboard.php?section=testimonials">
+                        <input type="hidden" name="csrf_token" value="<?= e($_SESSION['admin_csrf']) ?>">
+                        <input type="hidden" name="action" value="bulk_delete_testimonials">
+                        <div class="bulk-actions">
+                            <label class="bulk-checkbox">
+                                <input type="checkbox" data-select-all>
+                                <span>Sélectionner tout</span>
+                            </label>
+                            <button class="btn danger" type="submit" data-bulk-delete disabled>Supprimer la sélection</button>
+                        </div>
+                        <div class="list admin-media-list">
+                            <?php foreach ($testimonialGallery as $testimonial): ?>
+                                <article>
+                                    <label class="bulk-checkbox">
+                                        <input type="checkbox" name="ids[]" value="<?= (int) $testimonial['id'] ?>">
+                                        <span class="sr-only">Sélectionner</span>
+                                    </label>
+                                    <div class="admin-media-thumb">
+                                        <img src="<?= e($testimonial['capture_url']) ?>" alt="<?= e($testimonial['name']) ?>">
+                                        <div>
+                                            <strong><?= e($testimonial['name']) ?></strong>
+                                            <?php if (!empty($testimonial['message'])): ?>
+                                                <small><?= e($testimonial['message']) ?></small>
+                                            <?php endif; ?>
+                                        </div>
+                                    </div>
+                                    <div class="row-actions">
+                                        <a class="link-light" href="<?= $adminBase ?>/dashboard.php?section=testimonials&edit=testimonials&id=<?= (int) $testimonial['id'] ?>">Modifier</a>
+                                        <a class="link-light" href="<?= $adminBase ?>/dashboard.php?section=testimonials&delete=testimonials&id=<?= (int) $testimonial['id'] ?>">Supprimer</a>
+                                    </div>
+                                </article>
+                            <?php endforeach; ?>
+                        </div>
+                    </form>
+                <?php endif; ?>
             </section>
         <?php elseif ($currentSection === 'checkout'): ?>
             <section class="admin-section">
@@ -2789,6 +3124,34 @@ $editingTestimonial = $editing['testimonials'];
         toggle();
     };
 
+    const initBulkSelect = () => {
+        document.querySelectorAll('.bulk-form').forEach((form) => {
+            const selectAll = form.querySelector('[data-select-all]');
+            const checkboxes = Array.from(form.querySelectorAll('input[type="checkbox"][name="ids[]"]'));
+            const deleteBtn = form.querySelector('[data-bulk-delete]');
+            if (!checkboxes.length) return;
+            const sync = () => {
+                const checkedCount = checkboxes.filter((box) => box.checked).length;
+                if (selectAll) {
+                    selectAll.indeterminate = checkedCount > 0 && checkedCount < checkboxes.length;
+                    selectAll.checked = checkedCount === checkboxes.length;
+                }
+                if (deleteBtn) {
+                    deleteBtn.disabled = checkedCount === 0;
+                }
+            };
+            selectAll?.addEventListener('change', () => {
+                const isChecked = selectAll.checked;
+                checkboxes.forEach((box) => {
+                    box.checked = isChecked;
+                });
+                sync();
+            });
+            checkboxes.forEach((box) => box.addEventListener('change', sync));
+            sync();
+        });
+    };
+
     const refreshSection = () => {
         clearIntervals();
         initAutoDismiss();
@@ -2797,6 +3160,7 @@ $editingTestimonial = $editing['testimonials'];
         initOrders();
         initMessages();
         initCheckoutModeToggle();
+        initBulkSelect();
     };
 
     const hydrateDataScripts = (doc) => {

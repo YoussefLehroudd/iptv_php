@@ -1,0 +1,40 @@
+        case 'add_platform_card':
+            $platforms = json_decode($settings['platform_cards_json'] ?? '[]', true);
+            if (!is_array($platforms)) {
+                $platforms = [];
+            }
+            $title = trim($_POST['platform_title'] ?? '');
+            $bg = trim($_POST['platform_bg'] ?? '');
+            $image = trim($_POST['platform_image'] ?? '');
+            if (!empty($_FILES['platform_image_file']['tmp_name'])) {
+                $upload = uploadToCloudinary($_FILES['platform_image_file']['tmp_name'], 'iptv_abdo/platforms', $config['cloudinary']);
+                if ($upload) {
+                    $image = $upload;
+                }
+            }
+            if ($title !== '') {
+                $platforms[] = [
+                    'id' => bin2hex(random_bytes(4)),
+                    'title' => $title,
+                    'bg' => $bg !== '' ? $bg : 'linear-gradient(135deg, #0f172a, #1e293b)',
+                    'image_url' => $image,
+                ];
+                setSetting($pdo, 'platform_cards_json', json_encode($platforms, JSON_UNESCAPED_SLASHES));
+                $_SESSION['admin_flash'] = 'Plateforme ajoutée.';
+            }
+            header('Location: ' . $adminBase . '/dashboard.php?section=platforms');
+            exit;
+        case 'delete_platform_card':
+            $platforms = json_decode($settings['platform_cards_json'] ?? '[]', true);
+            if (!is_array($platforms)) {
+                $platforms = [];
+            }
+            $id = trim($_POST['platform_id'] ?? '');
+            if ($id !== '') {
+                $platforms = array_values(array_filter($platforms, static fn($item) => ($item['id'] ?? '') !== $id));
+                setSetting($pdo, 'platform_cards_json', json_encode($platforms, JSON_UNESCAPED_SLASHES));
+                $_SESSION['admin_flash'] = 'Plateforme supprimée.';
+            }
+            header('Location: ' . $adminBase . '/dashboard.php?section=platforms');
+            exit;
+        case 'update_support_whatsapp':

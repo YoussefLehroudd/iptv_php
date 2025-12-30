@@ -30,6 +30,7 @@ function initSliders() {
     movies: 5000,
     sports: 5000,
     testimonials: 6000,
+    platforms: 4500,
   };
 
   const findVideoToggle = (videoEl) =>

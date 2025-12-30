@@ -20,6 +20,7 @@ logVisit($pdo);
 
 $settings = getSettings($pdo);
 $themeVars = getActiveThemeVars($settings['active_theme'] ?? 'onyx', $settings);
+$faviconUrl = trim($settings['site_favicon'] ?? '') ?: ($assetBase . '/favicon.ico');
 $brandTitleSetting = trim($settings['brand_title'] ?? '');
 $brandName = $brandTitleSetting !== '' ? $brandTitleSetting : ($config['brand_name'] ?? 'ABDO IPTV CANADA');
 $brandTaglineSetting = trim($settings['brand_tagline'] ?? '');
@@ -118,7 +119,7 @@ $mediaBase = $assetBase . '/images/demo';
 
 $seoTitle = $settings['seo_title'] ?? 'ABDO IPTV Canada | Premium IPTV Accounts 2025';
 
-$seoDescription = $settings['seo_description'] ?? 'Blazing-fast IPTV for Canada, secure WhatsApp payment, and 24/7 support.';
+$seoDescription = $settings['seo_description'] ?? 'Blazing-fast IPTV for Canada, secure PayPal payment, and 24/7 support.';
 
 $structuredData = [
 
@@ -158,41 +159,12 @@ $structuredData = [
 
 
 
-$defaultMoviePosters = [
-
-    ['title' => 'Kung Fu Panda 4', 'image_url' => $mediaBase . '/kfp4.webp', 'category_label' => 'Movies & TV Shows'],
-
-    ['title' => 'The Beekeeper', 'image_url' => $mediaBase . '/beekeeper.webp', 'category_label' => 'Movies & TV Shows'],
-
-    ['title' => 'Kingdom of the Planet of the Apes', 'image_url' => $mediaBase . '/apes.webp', 'category_label' => 'Movies & TV Shows'],
-
-    ['title' => 'Furiosa', 'image_url' => $mediaBase . '/furiosa.webp', 'category_label' => 'Movies & TV Shows'],
-
-    ['title' => 'The Queen\'s Gambit', 'image_url' => $mediaBase . '/queens.webp', 'category_label' => 'Movies & TV Shows'],
-
-];
-
-
-
-$defaultSportEvents = [
-
-    ['title' => 'Formula 1', 'image_url' => $mediaBase . '/f1.webp'],
-
-    ['title' => 'LaLiga', 'image_url' => $mediaBase . '/laliga.webp'],
-
-    ['title' => 'NBA Playoffs', 'image_url' => $mediaBase . '/nba.webp'],
-
-    ['title' => 'Bundesliga', 'image_url' => $mediaBase . '/bundesliga.webp'],
-
-    ['title' => 'Euro 2024', 'image_url' => $mediaBase . '/euro.webp'],
-
-];
 
 
 
 $defaultTestimonials = [
     ['name' => 'Omar - Montreal', 'message' => 'Fast support, zero freeze during NHL games. Thanks!', 'capture_url' => $mediaBase . '/wa-1.webp'],
-    ['name' => 'Nadia - Ottawa', 'message' => 'WhatsApp support always there, I renewed for 12 months right away.', 'capture_url' => $mediaBase . '/wa-2.webp'],
+    ['name' => 'Nadia - Ottawa', 'message' => 'PayPal support always there, I renewed for 12 months right away.', 'capture_url' => $mediaBase . '/wa-2.webp'],
     ['name' => 'Youssef - Quebec', 'message' => 'VOD updated every day. Netflix, Apple TV+, everything is there.', 'capture_url' => $mediaBase . '/wa-3.webp'],
 ];
 
@@ -231,19 +203,14 @@ if ($moviePosterRows) {
         $moviePosterGroups[$categoryId]['posters'][] = $poster;
     }
 } else {
-    $firstCategoryId = (int) ($posterCategories[0]['id'] ?? 0);
-    $moviePosterGroups[$firstCategoryId]['posters'] = $defaultMoviePosters;
+    // No posters in DB: keep section empty (no default demo posters)
 }
 
 $moviePosterGroups = array_values(array_filter($moviePosterGroups, static fn(array $group): bool => !empty($group['posters'])));
 
 $sportEvents = fetchAllAssoc($pdo, 'SELECT id, title, image_url FROM sport_events ORDER BY created_at DESC');
 
-if (!$sportEvents) {
-
-    $sportEvents = $defaultSportEvents;
-
-}
+// If no sport events, leave empty (no defaults)
 
 $testimonials = fetchAllAssoc($pdo, 'SELECT id, name, message, capture_url FROM testimonials ORDER BY created_at DESC');
 
@@ -277,15 +244,46 @@ $deviceBadges = [
 
     'Apple TV',
 
+
 ];
 
+$platformCardsDefault = [
+    [
+        'title' => 'Apple TV',
+        'bg' => 'linear-gradient(135deg, #0f1b2c, #1b1f2f)',
+    ],
+    [
+        'title' => 'Prime Video',
+        'bg' => 'linear-gradient(135deg, #0c4a6e, #0ea5e9)',
+    ],
+    [
+        'title' => 'HBO Max',
+        'bg' => 'linear-gradient(135deg, #1e1b4b, #6b21a8)',
+    ],
+    [
+        'title' => 'Netflix',
+        'bg' => 'linear-gradient(135deg, #b91c1c, #7f1d1d)',
+    ],
+    [
+        'title' => 'Hulu',
+        'bg' => 'linear-gradient(135deg, #0f766e, #22d3ee)',
+    ],
+];
+$platformCards = json_decode($settings['platform_cards_json'] ?? '[]', true);
+if (!is_array($platformCards) || empty($platformCards)) {
+    $platformCards = $platformCardsDefault;
+}
+foreach ($platformCards as &$platformCard) {
+    if (empty($platformCard['bg'])) {
+        $platformCard['bg'] = 'linear-gradient(135deg, #0f172a, #1e293b)';
+    }
+}
+unset($platformCard);
 
 
 $welcomeRotator = [
-    'CA - Hey Canada! Welcome to ABDO IPTV.',
-    'EN - Welcome! Premium IPTV built for every Canadian province.',
-    'FR - Fast support 24/7 in English, French, and Arabic.',
-    'ES - Reliable IPTV for our Canadian Latin community.',
+    "Garantie pour toute la durée de l'abonnement",
+    "FR – Bienvenue ! IPTV premium conçue pour la France et l’Europee"
 ];
 
 
@@ -299,12 +297,12 @@ $faqs = [
     [
         'key' => 'faq-2',
         'question' => 'How long to activate my account?',
-        'answer' => 'Between 5 and 7 minutes after your WhatsApp payment is validated.',
+        'answer' => 'Between 5 and 7 minutes after your PayPal payment is validated.',
     ],
     [
         'key' => 'faq-3',
         'question' => 'Can I test before buying?',
-        'answer' => 'Yes, ask for a 24h test directly via the WhatsApp button.',
+        'answer' => 'Yes, ask for a 24h test directly via the PayPal button.',
     ],
     [
         'key' => 'faq-4',
@@ -336,9 +334,10 @@ $faqs = [
 
     <meta name="description" content="<?= e($seoDescription) ?>">
 
-    <meta name="keywords" content="IPTV Canada, IPTV streaming, IPTV WhatsApp, IPTV 2025, Premium IPTV">
+<meta name="keywords" content="IPTV Canada, IPTV streaming, IPTV PayPal, IPTV 2025, Premium IPTV">
 
     <meta name="author" content="<?= e($brandName) ?>">
+    <link rel="icon" href="<?= e($faviconUrl) ?>" type="image/x-icon">
 
 
 
@@ -393,23 +392,31 @@ $faqs = [
 
         .lang-switch button {
             padding: 0.35rem 0.65rem;
-            border: 1px solid rgba(255, 255, 255, 0.16);
-            background: transparent;
-            color: #f6f6f6;
+            border: 1px solid rgba(255, 255, 255, 0.22);
+            background: #f4f4f4;
+            color: #0b0b0b;
             border-radius: 8px;
             cursor: pointer;
             transition: all 0.2s ease;
+            box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.08);
         }
 
         .lang-switch button.active {
-            background: var(--accent-500, #7c3aed);
+            background: var(--accent-strong, var(--accent, #7c3aed));
             color: #fff;
-            border-color: var(--accent-500, #7c3aed);
-            box-shadow: 0 0 0 1px rgba(124, 58, 237, 0.25);
+            border-color: var(--accent-strong, var(--accent, #7c3aed));
+            box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.15);
+        }
+
+        /* Prevent white-on-white when the accent is very light */
+        @supports (color: color-mix(in srgb, black 50%, white 50%)) {
+            .lang-switch button.active {
+                background: color-mix(in srgb, var(--accent-strong, var(--accent, #7c3aed)) 78%, #000 22%);
+            }
         }
 
         .lang-switch button:focus-visible {
-            outline: 2px solid var(--accent-500, #7c3aed);
+            outline: 2px solid var(--accent-strong, var(--accent, #7c3aed));
             outline-offset: 2px;
         }
 
@@ -435,7 +442,7 @@ $faqs = [
 
 </head>
 
-<body>
+<body data-theme="<?= e($settings['active_theme'] ?? 'onyx') ?>">
 
     <div class="noise"></div>
 
@@ -524,11 +531,11 @@ $faqs = [
 
             <div class="hero-content">
 
-                <p class="eyebrow" data-i18n-key="hero-eyebrow" data-i18n-default="Secure IPTV · Instant WhatsApp payment">Secure IPTV · Instant WhatsApp payment</p>
+                <p class="eyebrow" data-i18n-key="hero-eyebrow" data-i18n-default="Secure IPTV · Instant PayPal payment">Secure IPTV · Instant PayPal payment</p>
 
-                <h1 data-i18n-key="hero-title" data-i18n-default="<?= e($settings['hero_title'] ?? 'Best IPTV Service at an Affordable Price') ?>"><?= e($settings['hero_title'] ?? 'Best IPTV Service at an Affordable Price') ?></h1>
+                <h1 data-i18n-key="hero-title" data-i18n-default="<?= e($settings['hero_title'] ?? 'SERVICE IPTV PREMIUM AU MEILLEUR PRIX') ?>"><?= e($settings['hero_title'] ?? 'SERVICE IPTV PREMIUM AU MEILLEUR PRIX') ?></h1>
 
-                <p class="subtitle" data-i18n-key="hero-subtitle" data-i18n-default="<?= e($settings['hero_subtitle'] ?? 'Experience breathtaking 4K visuals, +40K channels & 54K VOD across Canada.') ?>"><?= e($settings['hero_subtitle'] ?? 'Experience breathtaking 4K visuals, +40K channels & 54K VOD across Canada.') ?></p>
+                <p class="subtitle" data-i18n-key="hero-subtitle" data-i18n-default="<?= e($settings['hero_subtitle'] ?? 'Profitez d’une qualité 4K exceptionnelle, +40 000 chaînes et +145 000 VOD en France.') ?>"><?= e($settings['hero_subtitle'] ?? 'Profitez d’une qualité 4K exceptionnelle, +40 000 chaînes et +145 000 VOD en France.') ?></p>
 
                 <?php if ($welcomeRotator): ?>
 
@@ -769,7 +776,7 @@ $faqs = [
                         <?php $offerCheckoutLink = $buildCheckoutLink($offer); ?>
                         <a class="btn primary" href="<?= e($offerCheckoutLink) ?>" data-i18n-key="offers-buy" data-i18n-default="Buy now" data-keep-lang>Buy now</a>
 
-                        <small data-i18n-key="offers-ready" data-i18n-default="Ready in 5-7 min · WhatsApp">Ready in 5-7 min · WhatsApp</small>
+                        <small data-i18n-key="offers-ready" data-i18n-default="Ready in 5-7 min · PayPal">Ready in 5-7 min · PayPal</small>
 
                     </article>
 
@@ -793,7 +800,7 @@ $faqs = [
 
                 ['key' => 'benefit-3', 'title' => 'Money Back Guarantee', 'desc' => 'Refund within 10 days if you are not satisfied.'],
 
-                ['key' => 'benefit-4', 'title' => 'Support 24/7', 'desc' => 'WhatsApp + email EN / FR / AR at any time.'],
+                ['key' => 'benefit-4', 'title' => 'Support 24/7', 'desc' => 'PayPal + email EN / FR / AR at any time.'],
 
             ];
 
@@ -808,6 +815,44 @@ $faqs = [
                 </article>
 
             <?php endforeach; ?>
+
+        </section>
+
+
+
+        <section class="platforms" data-animate>
+
+            <div class="section-head">
+
+                <p class="eyebrow" data-i18n-key="platforms-eyebrow" data-i18n-default="Top streaming services">Top streaming services</p>
+
+                <h2 data-i18n-key="platforms-title" data-i18n-default="Le meilleur abonnement IPTV premium pour une expérience de streaming exceptionnelle.">
+                    Le meilleur abonnement IPTV premium pour une expérience de streaming exceptionnelle.
+                </h2>
+
+            </div>
+
+            <div class="media-carousel platforms-carousel">
+                <div class="slider platforms-slider" data-slider="platforms" data-visible="5" data-infinite="true">
+                    <div class="slider-track">
+                        <?php foreach ($platformCards as $platform): ?>
+                            <article class="slide platform-card" style="--platform-bg: <?= e($platform['bg']) ?>">
+                                <?php if (!empty($platform['image_url'])): ?>
+                                    <div class="platform-image" style="background-image: url('<?= e($platform['image_url']) ?>');"></div>
+                                <?php endif; ?>
+                                <div class="platform-overlay"></div>
+                                <div class="platform-label">
+                                    <span><?= e($platform['title']) ?></span>
+                                </div>
+                            </article>
+                        <?php endforeach; ?>
+                    </div>
+                </div>
+                <div class="slider-nav" data-slider-nav="platforms">
+                    <button type="button" data-slider-target="platforms" data-direction="prev">‹</button>
+                    <button type="button" data-slider-target="platforms" data-direction="next">›</button>
+                </div>
+            </div>
 
         </section>
 
@@ -1030,7 +1075,7 @@ $faqs = [
 
                     <h2 data-i18n-key="contact-title" data-i18n-default="Need help? Contact us">Need help? Contact us</h2>
 
-                    <p data-i18n-key="contact-copy" data-i18n-default="Reach us on WhatsApp or through this form for a quick reply.">Reach us on WhatsApp or through this form for a quick reply.</p>
+                    <p data-i18n-key="contact-copy" data-i18n-default="Reach us on PayPal or through this form for a quick reply.">Reach us on PayPal or through this form for a quick reply.</p>
 
                     <?php if ($contactSuccess): ?>
 
@@ -1073,17 +1118,24 @@ $faqs = [
 
 <footer data-animate>
 
-        <p data-i18n-key="footer-note" data-i18n-default="© {year} {brand} · Secure IPTV Canada · All rights reserved." data-i18n-year="<?= date('Y') ?>" data-i18n-brand="<?= e($brandName) ?>">© <?= date('Y') ?> <?= e($brandName) ?> · Secure IPTV Canada · All rights reserved.</p>
-
-        <div class="footer-links">
-
-            <a href="#offres" data-i18n-key="footer-pricing" data-i18n-default="Pricing Plans">Pricing Plans</a>
-
-            <a href="#faq" data-i18n-key="footer-faq" data-i18n-default="FAQ">FAQ</a>
-
-            <a href="<?= e(getWhatsappLink($supportWhatsappNumber, '')) ?>" target="_blank" rel="noopener" data-i18n-key="footer-support" data-i18n-default="Support WhatsApp">Support WhatsApp</a>
-
+        <div class="trust-logos">
+            <div class="trust-card">
+                <p class="eyebrow" data-i18n-key="trust-eyebrow" data-i18n-default="Nous acceptons">Nous acceptons</p>
+                <img class="trust-payments" src="<?= $assetBase ?>/images/afe-checkout-badge.png-768x142.webp" alt="Paiement sécurisé">
+                <img class="trust-trustpilot" src="<?= $assetBase ?>/images/Trustpilot-2048x340-1-768x128.png" alt="Trustpilot excellent">
+            </div>
         </div>
+
+        <div class="footer-links footer-links--single">
+            <a href="#offres" data-i18n-key="footer-pricing" data-i18n-default="Pricing Plans">Pricing Plans</a>
+            <a href="#faq" data-i18n-key="footer-faq" data-i18n-default="FAQ">FAQ</a>
+            <a href="<?= e(getWhatsappLink($supportWhatsappNumber, '')) ?>" target="_blank" rel="noopener" data-i18n-key="footer-support" data-i18n-default="Support">Support</a>
+            <strong data-i18n-key="footer-useful" data-i18n-default="Liens utiles">Liens utiles</strong>
+            <a href="<?= e($publicBase) ?>/privacy.php?lang=<?= urlencode($lang) ?>" data-keep-lang data-i18n-key="footer-privacy" data-i18n-default="Politique de confidentialité">Politique de confidentialité</a>
+            <a href="<?= e($publicBase) ?>/terms.php?lang=<?= urlencode($lang) ?>" data-keep-lang data-i18n-key="footer-terms" data-i18n-default="Conditions d'utilisation">Conditions d'utilisation</a>
+        </div>
+
+        <p class="footer-note footer-note--end" data-i18n-key="footer-note" data-i18n-default="© {year} {brand} · Secure IPTV · All rights reserved." data-i18n-year="<?= date('Y') ?>" data-i18n-brand="<?= e($brandName) ?>">© <?= date('Y') ?> <?= e($brandName) ?> · Secure IPTV · All rights reserved.</p>
 
     </footer>
 
@@ -1151,9 +1203,9 @@ $faqs = [
                     'nav-faq': 'FAQ',
                     'nav-contact': 'Contact',
                     'btn-free-trial': 'Free Trial',
-                    'hero-eyebrow': 'Secure IPTV · Instant WhatsApp payment',
-                    'hero-title': 'Best IPTV Service at an Affordable Price',
-                    'hero-subtitle': 'Experience breathtaking 4K visuals, +40K channels & 54K VOD across Canada.',
+                    'hero-eyebrow': 'Secure IPTV · Instant PayPal payment',
+                    'hero-title': 'PREMIUM IPTV SERVICE AT THE BEST PRICE',
+                    'hero-subtitle': 'Enjoy exceptional 4K quality, +40,000 channels and +145,000 VOD in France.',
                     'hero-cta-primary': 'See plans',
                     'hero-cta-test': 'Test 24h',
                     'stat-clients': 'Active clients',
@@ -1163,7 +1215,7 @@ $faqs = [
                     'offers-title': 'Choose Your <span>IPTV Plan</span>',
                     'offers-subtitle': 'Activation in 5-7 minutes · Support EN/FR/AR 24/7',
                     'offers-buy': 'Buy now',
-                    'offers-ready': 'Ready in 5-7 min · WhatsApp',
+                    'offers-ready': 'Ready in 5-7 min · PayPal',
                     'devices-eyebrow': 'Supported Devices',
                     'devices-title': 'Compatible everywhere',
                     'faq-eyebrow': 'FAQ',
@@ -1177,10 +1229,10 @@ $faqs = [
                     'benefit-3-title': 'Money Back Guarantee',
                     'benefit-3-desc': 'Refund within 10 days if you are not satisfied.',
                     'benefit-4-title': 'Support 24/7',
-                    'benefit-4-desc': 'WhatsApp + email EN / FR / AR at any time.',
+                    'benefit-4-desc': 'PayPal + email EN / FR / AR at any time.',
                     'contact-eyebrow': 'Fast support',
                     'contact-title': 'Need help? Contact us',
-                    'contact-copy': 'Reach us on WhatsApp or through this form for a quick reply.',
+                    'contact-copy': 'Reach us on PayPal or through this form for a quick reply.',
                     'media-eyebrow': 'Movies & TV Shows',
                     'media-title': 'Latest blockbuster posters',
                     'sports-eyebrow': 'All Sports Events',
@@ -1189,24 +1241,28 @@ $faqs = [
                     'contact-fullname': 'Full name',
                     'contact-email': 'Email',
                     'contact-phone': 'Phone',
-                    'contact-whatsapp': 'WhatsApp',
+                    'contact-whatsapp': 'PayPal',
                     'contact-city': 'City',
                     'contact-message': 'Message',
                     'contact-submit': 'Send',
-                    'footer-note': '© {year} {brand} · Secure IPTV Canada · All rights reserved.',
+                    'footer-note': '© {year} {brand} · Secure IPTV · All rights reserved.',
                     'footer-pricing': 'Pricing Plans',
                     'footer-faq': 'FAQ',
-                    'footer-support': 'Support WhatsApp',
+                    'footer-support': 'Support',
                     'faq-1-q': 'Which devices are supported?',
                     'faq-1-a': 'All Smart TVs, Android/Apple, FireStick, MAG, PC/Mac and even Chromecast.',
                     'faq-2-q': 'How long to activate my account?',
-                    'faq-2-a': 'Between 5 and 7 minutes after your WhatsApp payment is validated.',
+                    'faq-2-a': 'Between 5 and 7 minutes after your PayPal payment is validated.',
                     'faq-3-q': 'Can I test before buying?',
-                    'faq-3-a': 'Yes, ask for a 24h test directly via the WhatsApp button.',
+                    'faq-3-a': 'Yes, ask for a 24h test directly via the PayPal button.',
                     'faq-4-q': 'How many simultaneous connections?',
                     'faq-4-a': 'Each plan includes 1 connection; multi-screen is available on request.',
                     'faq-5-q': 'Which payment methods?',
                     'faq-5-a': 'Interac, bank transfer, USDT crypto, or PayPal depending on availability.',
+                    'footer-privacy': 'Privacy Policy',
+                    'footer-terms': 'Terms of Service',
+                    'footer-useful': 'Useful Links',
+
                 },
                 fr: {
                     'nav-home': 'Accueil',
@@ -1215,9 +1271,9 @@ $faqs = [
                     'nav-faq': 'FAQ',
                     'nav-contact': 'Contact',
                     'btn-free-trial': 'Essai gratuit',
-                    'hero-eyebrow': 'IPTV sécurisée · Paiement WhatsApp instantané',
-                    'hero-title': 'Meilleur service IPTV à prix abordable',
-                    'hero-subtitle': 'Profitez d\'une image 4K, +40K chaînes & 54K VOD partout au Canada.',
+                    'hero-eyebrow': 'IPTV sécurisée · Paiement PayPal instantané',
+                    'hero-title': 'SERVICE IPTV PREMIUM AU MEILLEUR PRIX',
+                    'hero-subtitle': 'Profitez d’une qualité 4K exceptionnelle, +40 000 chaînes et +145 000 VOD en France.',
                     'hero-cta-primary': 'Voir les offres',
                     'hero-cta-test': 'Test 24h',
                     'stat-clients': 'Clients actifs',
@@ -1227,7 +1283,7 @@ $faqs = [
                     'offers-title': 'Choisissez votre <span>offre IPTV</span>',
                     'offers-subtitle': 'Activation en 5 à 7 minutes · Support EN/FR/AR 24/7',
                     'offers-buy': 'Acheter',
-                    'offers-ready': 'Prêt en 5-7 min · WhatsApp',
+                    'offers-ready': 'Prêt en 5-7 min · PayPal',
                     'devices-eyebrow': 'Appareils supportés',
                     'devices-title': 'Compatible partout',
                     'faq-eyebrow': 'FAQ',
@@ -1241,10 +1297,10 @@ $faqs = [
                     'benefit-3-title': 'Garantie satisfait ou remboursé',
                     'benefit-3-desc': 'Remboursement sous 10 jours si vous n\'êtes pas satisfait.',
                     'benefit-4-title': 'Support 24/7',
-                    'benefit-4-desc': 'WhatsApp + email EN / FR / AR à tout moment.',
+                    'benefit-4-desc': 'PayPal + email EN / FR / AR à tout moment.',
                     'contact-eyebrow': 'Support rapide',
                     'contact-title': 'Besoin d\'aide ? Contactez-nous',
-                    'contact-copy': 'Écrivez-nous sur WhatsApp ou via le formulaire pour une réponse rapide.',
+                    'contact-copy': 'Écrivez-nous sur PayPal ou via le formulaire pour une réponse rapide.',
                     'media-eyebrow': 'Films & séries',
                     'media-title': 'Les dernières affiches blockbuster',
                     'sports-eyebrow': 'Tous les événements sportifs',
@@ -1253,24 +1309,27 @@ $faqs = [
                     'contact-fullname': 'Nom complet',
                     'contact-email': 'Email',
                     'contact-phone': 'Téléphone',
-                    'contact-whatsapp': 'WhatsApp',
+                    'contact-whatsapp': 'PayPal',
                     'contact-city': 'Ville',
                     'contact-message': 'Message',
                     'contact-submit': 'Envoyer',
                     'footer-note': '© {year} {brand} · IPTV sécurisée Canada · Tous droits réservés.',
                     'footer-pricing': 'Offres',
                     'footer-faq': 'FAQ',
-                    'footer-support': 'Support WhatsApp',
+                    'footer-support': 'Support',
                     'faq-1-q': 'Quels appareils sont supportés ?',
                     'faq-1-a': 'Toutes les Smart TV, Android/Apple, FireStick, MAG, PC/Mac et même Chromecast.',
                     'faq-2-q': 'Combien de temps pour activer mon compte ?',
-                    'faq-2-a': 'Entre 5 et 7 minutes après validation de votre paiement WhatsApp.',
+                    'faq-2-a': 'Entre 5 et 7 minutes après validation de votre paiement PayPal.',
                     'faq-3-q': 'Puis-je tester avant d\'acheter ?',
-                    'faq-3-a': 'Oui, demande un test 24h directement via le bouton WhatsApp.',
+                    'faq-3-a': 'Oui, demande un test 24h directement via le bouton PayPal.',
                     'faq-4-q': 'Combien de connexions simultanées ?',
                     'faq-4-a': 'Chaque plan inclut 1 connexion ; le multi-écran est disponible sur demande.',
                     'faq-5-q': 'Quels modes de paiement ?',
                     'faq-5-a': 'Interac, virement bancaire, crypto USDT ou PayPal selon disponibilité.',
+                    'footer-privacy': 'Politique de confidentialité',
+                    'footer-terms': 'Conditions d’utilisation',
+                    'footer-useful': 'Liens utiles',
                 
                 },
             };
